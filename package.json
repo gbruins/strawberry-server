@@ -1,0 +1,36 @@
+{
+    "name": "strawberry-server",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "dev": "cross-env node --require dotenv/config ./node_modules/nodemon/bin/nodemon server/index.js --watch server",
+        "knex:migrate": "node --require dotenv/config ./node_modules/knex/bin/cli.js migrate:latest --knexfile ./server/knexfile.js",
+        "knex:seed": "node --require dotenv/config ./node_modules/knex/bin/cli.js seed:run --knexfile ./server/knexfile.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@hapi/basic": "7.0.2",
+        "@hapi/boom": "10.0.1",
+        "@hapi/cookie": "12.0.1",
+        "@hapi/hapi": "21.4.3",
+        "accounting": "0.4.1",
+        "dotenv": "17.2.3",
+        "joi": "18.0.1",
+        "knex": "3.1.0",
+        "lodash.clonedeep": "4.5.0",
+        "lodash.isobject": "3.0.2",
+        "lodash.isstring": "4.0.1",
+        "lodash.merge": "4.6.2",
+        "pg": "8.16.3",
+        "stripe": "19.1.0",
+        "winston": "3.18.3"
+    },
+    "devDependencies": {
+        "cross-env": "10.1.0",
+        "nodemon": "3.1.10"
+    }
+}
