@@ -12,7 +12,27 @@ dotenv.config();
 const init = async () => {
     const server = Hapi.server({
         port: process.env.PORT || 3000,
-        host: 'localhost'
+        host: 'localhost',
+        routes: {
+            cors: {
+                origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(url => url.trim()) : ['*'],
+                // credentials: true // set to true if you need cookies (session) from the browser
+                credentials: false // for testing purposes only
+            },
+            validate: {
+                failAction: (request, h, err) => {
+                    global.logger.error(err);
+
+                    if (process.env.NODE_ENV === 'production') {
+                        throw Boom.badRequest('Invalid request payload input');
+                    }
+                    else {
+                        // During development, respond with the full error.
+                        throw err;
+                    }
+                }
+            }
+        }
     });
 
     // Register plugins here

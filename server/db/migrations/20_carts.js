@@ -30,11 +30,11 @@ export async function up(knex) {
             t.integer('sales_tax').nullable();
             t.jsonb('admin_order_notes').nullable();
 
-            t.timestamp('created_at', true).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', true).nullable();
-            t.timestamp('deleted_at', true).nullable();
-            t.timestamp('closed_at', true).nullable();
-            t.timestamp('shipped_at', true).nullable();
+            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: true }).nullable();
+            t.timestamp('deleted_at', { useTz: true }).nullable();
+            t.timestamp('closed_at', { useTz: true }).nullable();
+            t.timestamp('shipped_at', { useTz: true }).nullable();
 
             t.index([
                 'id'

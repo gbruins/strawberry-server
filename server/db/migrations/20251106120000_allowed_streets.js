@@ -14,8 +14,8 @@ export async function up(knex) {
             t.string('street_name').notNullable();
             t.boolean('active').defaultTo(false);
 
-            t.timestamp('created_at', true).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', true).nullable();
+            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: true }).nullable();
 
             t.index(['street_name']);
         }

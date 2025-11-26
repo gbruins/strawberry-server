@@ -8,19 +8,11 @@ const common = {
     pool: {
         min: 2,
         max: 10,
-        afterCreate: function (conn, done) {
+        afterCreate: (conn, done) => {
             // in this example we use pg driver's connection API
-            conn.query('SET timezone="UTC";', function (err) {
+            conn.query("SET TIME ZONE 'UTC'",  (err) => {
                 done(err, conn);
             });
-
-            // //test
-            // conn.query(`SET app.current_tenant = "11111111-1111-1111-1111-111111111111"`, function (err) {
-            //     if(err) {
-            //         console.error(err)
-            //     }
-            //     done(err, conn);
-            // });
         }
     },
 

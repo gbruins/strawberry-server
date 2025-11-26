@@ -19,8 +19,8 @@ export async function up(knex) {
             t.string('description').nullable();
             t.json('metadata').nullable();
             t.integer('ordinal').nullable().defaultTo(1);
-            t.timestamp('created_at', true).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', true).nullable();
+            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: true }).nullable();
 
             t.index([
                 'id'

@@ -14,18 +14,21 @@ export async function up(knex) {
             t.uuid('id').primary().unique().defaultTo(knex.raw('uuid_generate_v4()'));
             t.string('title').nullable();
             t.text('description').nullable();
+            t.string('image').nullable();
             t.integer('product_type').nullable();
             t.integer('base_price').nullable().defaultTo(null);
             t.boolean('published').defaultTo(false);
+            t.boolean('is_special').defaultTo(false);
+
 
             // STRIPE
             t.string('stripe_price_id').nullable();
             t.string('stripe_product_id').nullable();
 
             // TIMESTAMPS
-            t.timestamp('created_at', true).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', true).nullable();
-            t.timestamp('deleted_at', true).nullable();
+            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: true }).nullable();
+            t.timestamp('deleted_at', { useTz: true }).nullable();
 
             t.index([
                 'id',

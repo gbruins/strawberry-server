@@ -6,6 +6,10 @@ const tableName = tables.service_menu_products;
  * @returns { Promise<void> }
  */
 export async function up(knex) {
+    /* A service menu can have multiple products,
+    * and a product can belong to multiple service menus.
+    * This is a many-to-many relationship implemented via a junction table.
+    */
     await knex.schema.createTable(tableName, (t) => {
         t.uuid('service_menu_id')
             .notNullable()

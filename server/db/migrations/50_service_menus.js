@@ -17,9 +17,9 @@ export async function up(knex) {
             t.boolean('published').defaultTo(false);
 
             // TIMESTAMPS
-            t.timestamp('created_at', true).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', true).nullable();
-            t.timestamp('deleted_at', true).nullable();
+            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: true }).nullable();
+            t.timestamp('deleted_at', { useTz: true }).nullable();
 
             t.index([
                 'id'

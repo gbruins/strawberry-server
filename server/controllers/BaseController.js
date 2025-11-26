@@ -159,13 +159,13 @@ export default class BaseController {
     async deleteHandler(request, h) {
         try {
             global.logger.info(`REQUEST: ${this.getControllerName()}.deleteHandler`, {
-                meta: request.payload
+                meta: request.query
             });
 
-            await this.throwIfNotFound(request.payload.id);
+            await this.throwIfNotFound(request.query.id);
 
             const response = await this.service.del({
-                where: { id: request.payload.id }
+                where: { id: request.query.id }
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.deleteHandler`, {

@@ -9,11 +9,7 @@ export function getGenericConfig_SEARCH(controllerInstance, overrides = {}) {
             validate: {
                 query: Joi.object({
                     ...controllerInstance.service.getValidationSchemaForSearch()
-                }),
-                failAction: (request, h, err) => {
-                    console.log('Validation error:', err.message);
-                    // throw err; // rethrow to preserve default behavior
-                }
+                })
             },
             handler: (request, h) => {
                 return controllerInstance.searchHandler(request, h);
@@ -32,11 +28,7 @@ export function getGenericConfig_GET(controllerInstance, overrides = {}) {
             validate: {
                 query: Joi.object({
                     ...controllerInstance.service.getValidationSchemaForId()
-                }),
-                failAction: (request, h, err) => {
-                    console.log('Validation error:', err.message);
-                    // throw err; // rethrow to preserve default behavior
-                }
+                })
             },
             handler: (request, h) => {
                 return controllerInstance.getByIdHandler(request, h);
@@ -56,11 +48,7 @@ export function getGenericConfig_POST(controllerInstance, overrides = {}) {
             validate: {
                 payload: Joi.object({
                     ...controllerInstance.service.getValidationSchemaForAdd()
-                }),
-                failAction: (request, h, err) => {
-                    console.log('Validation error:', err.message);
-                    // throw err; // rethrow to preserve default behavior
-                }
+                })
             },
             handler: (request, h) => {
                 return controllerInstance.createHandler(request, h);
@@ -80,11 +68,7 @@ export function getGenericConfig_PUT(controllerInstance, overrides = {}) {
             validate: {
                 payload: Joi.object({
                     ...controllerInstance.service.getValidationSchemaForUpdate()
-                }),
-                failAction: (request, h, err) => {
-                    console.log('Validation error:', err.message);
-                    // throw err; // rethrow to preserve default behavior
-                }
+                })
             },
             handler: (request, h) => {
                 return controllerInstance.updateHandler(request, h);
@@ -102,13 +86,9 @@ export function getGenericConfig_DELETE(controllerInstance, overrides = {}) {
         options: {
             description: 'Deletes an item',
             validate: {
-                payload: Joi.object({
+                query: Joi.object({
                     ...controllerInstance.service.getValidationSchemaForId()
-                }),
-                failAction: (request, h, err) => {
-                    console.log('Validation error:', err.message);
-                    // throw err; // rethrow to preserve default behavior
-                }
+                })
             },
             handler: (request, h) => {
                 return controllerInstance.deleteHandler(request, h);
