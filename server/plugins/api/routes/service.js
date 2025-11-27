@@ -15,7 +15,7 @@ export default (server) => {
             options: {
                 description: 'Gets a list of services',
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -25,7 +25,7 @@ export default (server) => {
             options: {
                 description: 'Gets a service by ID',
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -33,30 +33,21 @@ export default (server) => {
         getGenericConfig_POST(Ctrl, {
             path: '/service',
             options: {
-                description: 'Adds a new service',
-                // auth: {
-                //     strategies: ['session']
-                // }
+                description: 'Adds a new service'
             }
         }),
 
         getGenericConfig_PUT(Ctrl, {
             path: '/service',
             options: {
-                description: 'Updates a service',
-                // auth: {
-                //     strategies: ['session']
-                // }
+                description: 'Updates a service'
             }
         }),
 
         getGenericConfig_DELETE(Ctrl, {
             path: '/service',
             options: {
-                description: 'Deletes a service',
-                // auth: {
-                //     strategies: ['session']
-                // },
+                description: 'Deletes a service'
             }
         })
     ]);

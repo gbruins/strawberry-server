@@ -7,6 +7,7 @@
 // import cartRoutes from './routes/carts.js';
 import addressDiscountRoutes from './routes/address_discounts.js';
 import allowedStreetRoutes from './routes/allowed_streets.js';
+import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import productTypeRoutes from './routes/product_types.js';
 import serviceRoutes from './routes/service.js';
@@ -23,6 +24,7 @@ export const apiPlugin = {
                 // cartRoutes(server);
                 addressDiscountRoutes(server);
                 allowedStreetRoutes(server);
+                authRoutes(server);
                 productRoutes(server);
                 productTypeRoutes(server);
                 serviceRoutes(server);

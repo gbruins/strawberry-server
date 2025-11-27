@@ -14,7 +14,7 @@ export default (server) => {
             path: '/allowed_streets',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -23,36 +23,21 @@ export default (server) => {
             path: '/allowed_street',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
 
         getGenericConfig_POST(Ctrl, {
-            path: '/allowed_street',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/allowed_street'
         }),
 
         getGenericConfig_PUT(Ctrl, {
-            path: '/allowed_street',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/allowed_street'
         }),
 
         getGenericConfig_DELETE(Ctrl, {
-            path: '/allowed_street',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/allowed_street'
         })
     ]);
 }

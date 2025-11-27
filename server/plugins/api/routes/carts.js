@@ -11,7 +11,7 @@ export default (server) => {
             options: {
                 description: 'Gets a list of carts',
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
                 validate: {
                     query: Joi.object({
@@ -33,7 +33,7 @@ export default (server) => {
             options: {
                 description: 'Gets a shopping cart for the given ID',
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
                 validate: {
                     query: Joi.object({
@@ -83,9 +83,6 @@ export default (server) => {
             path: '/cart/order',
             options: {
                 description: 'Gets a closed cart by ID',
-                // auth: {
-                //     strategies: ['session']
-                // },
                 validate: {
                     query: Joi.object({
                         ...CartCtrl.service.getValidationSchemaForId(),
@@ -105,9 +102,6 @@ export default (server) => {
             path: '/cart/order/resend-confirmation',
             options: {
                 description: 'Re-sends the order confirmation email for a given closed cart',
-                // auth: {
-                //     strategies: ['session']
-                // },
                 validate: {
                     payload: Joi.object({
                         ...CartCtrl.service.getValidationSchemaForId(),

@@ -14,9 +14,6 @@ export default (server) => {
             path: '/products',
             options: {
                 description: 'Gets a list of products',
-                // auth: {
-                //     strategies: ['storeauth', 'session']
-                // },
             }
         }),
 
@@ -25,7 +22,7 @@ export default (server) => {
             options: {
                 description: 'Gets a product by ID',
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -33,30 +30,21 @@ export default (server) => {
         getGenericConfig_POST(Ctrl, {
             path: '/product',
             options: {
-                description: 'Adds a new product',
-                // auth: {
-                //     strategies: ['session']
-                // }
+                description: 'Adds a new product'
             }
         }),
 
         getGenericConfig_PUT(Ctrl, {
             path: '/product',
             options: {
-                description: 'Updates a product',
-                // auth: {
-                //     strategies: ['session']
-                // }
+                description: 'Updates a product'
             }
         }),
 
         getGenericConfig_DELETE(Ctrl, {
             path: '/product',
             options: {
-                description: 'Deletes a product',
-                // auth: {
-                //     strategies: ['session']
-                // },
+                description: 'Deletes a product'
             }
         })
     ]);

@@ -1,7 +1,9 @@
 import Boom from '@hapi/boom';
 import isObject from 'lodash.isobject';
+import AuthService from '../services/AuthService.js';
 
 const isProd = process.env.NODE_ENV === 'production';
+const AuthSvc = new AuthService();
 
 export const serverExtensionsPlugin = {
     name: 'serverExtensionsPlugin',
@@ -32,14 +34,14 @@ export const serverExtensionsPlugin = {
         // CORS cookie notes:
         // * To set a cookie via CORS ajax requests, SameSite=None is required
         // * SameSite=None requires Secure to be true
-        server.auth.strategy('session', 'cookie', {
+        server.auth.strategy('adminCookie', 'cookie', {
             // https://hapi.dev/module/cookie/api/?v=11.0.1
             cookie: {
                 name: 'sbsession',
                 password: process.env.SESSION_COOKIE_PASSWORD,
-                isSecure: isProd,
+                isSecure: true,
                 isHttpOnly: true,
-                isSameSite: isProd ? 'None' : false, // not for dev becaue 'None' also requires isSecure=true
+                isSameSite: 'None', // 'None' also requires isSecure=true
                 domain: process.env.SESSION_COOKIE_DOMAIN,
                 path: '/',
                 // ttl: 3600000, // one hour
@@ -51,20 +53,41 @@ export const serverExtensionsPlugin = {
             validate: async (request, session) => {
                 global.logger.info('Cookie validate', {
                     meta: {
-                        session_id: session.id
+                        session_username: session.username
                     }
                 });
 
-                global.logger.info('Cookie validate success');
+                const isAuthorized = AuthSvc.isAuthorizedUser(session);
+
+                if(!isAuthorized) {
+                    global.logger.error('Cookie invalid because user does not exist', {
+                        meta: {
+                            session_username: session.username
+                        }
+                    });
+
+                    return {
+                        isValid: false
+                    };
+                }
+
+                global.logger.info('Cookie validate success', {
+                    meta: {
+                        session_username: session.username,
+                    }
+                });
 
                 return {
-                    isValid: true
+                    isValid: true,
+                    credentials: {
+                        username: session.username
+                    }
                 };
             }
         });
 
 
-        // server.auth.default('session');
+        server.auth.default('adminCookie');
 
 
         server.decorate('toolkit', 'apiSuccess', function (responseData) {

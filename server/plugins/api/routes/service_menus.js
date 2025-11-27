@@ -14,7 +14,7 @@ export default (server) => {
             path: '/service_menus',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -23,36 +23,21 @@ export default (server) => {
             path: '/service_menu',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
 
         getGenericConfig_POST(Ctrl, {
-            path: '/service_menu',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/service_menu'
         }),
 
         getGenericConfig_PUT(Ctrl, {
-            path: '/service_menu',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/service_menu'
         }),
 
         getGenericConfig_DELETE(Ctrl, {
-            path: '/service_menu',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/service_menu'
         })
     ]);
 }

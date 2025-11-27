@@ -15,7 +15,7 @@ export default (server) => {
             path: '/product_types',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     // strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -24,7 +24,7 @@ export default (server) => {
             path: '/product_type',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -32,9 +32,6 @@ export default (server) => {
         getGenericConfig_POST(Ctrl, {
             path: '/product_type',
             options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
                 handler: (request, h) => {
                     return Ctrl.addProductTypeHandler(request, h);
                 }
@@ -44,9 +41,6 @@ export default (server) => {
         getGenericConfig_PUT(Ctrl, {
             path: '/product_type',
             options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
                 handler: (request, h) => {
                     return Ctrl.updateProductTypeHandler(request, h);
                 }
@@ -54,12 +48,7 @@ export default (server) => {
         }),
 
         getGenericConfig_DELETE(Ctrl, {
-            path: '/product_type',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/product_type'
         }),
 
         {
@@ -67,9 +56,6 @@ export default (server) => {
             path: '/product_types/ordinal',
             options: {
                 description: 'Bulk update product type ordinals',
-                // auth: {
-                //     strategies: ['session']
-                // },
                 validate: {
                     payload: Joi.object({
                         ...Ctrl.service.getValidationSchemaForUpdateOrdinals()

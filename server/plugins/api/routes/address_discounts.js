@@ -14,7 +14,7 @@ export default (server) => {
             path: '/address_discounts',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
@@ -23,36 +23,21 @@ export default (server) => {
             path: '/address_discount',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'session']
+                //     strategies: ['storeauth', 'adminCookie']
                 // },
             }
         }),
 
         getGenericConfig_POST(Ctrl, {
-            path: '/address_discount',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/address_discount'
         }),
 
         getGenericConfig_PUT(Ctrl, {
-            path: '/address_discount',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/address_discount'
         }),
 
         getGenericConfig_DELETE(Ctrl, {
-            path: '/address_discount',
-            options: {
-                // auth: {
-                //     strategies: ['session']
-                // },
-            }
+            path: '/address_discount'
         })
     ]);
 }
