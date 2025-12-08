@@ -1,5 +1,4 @@
-import tables from '../utils/tables.js';
-const tableName = tables.service_menu_products;
+import { tableNameProductsJunction as tableName } from '../../plugins/serviceMenus/ServiceMenuModel.js';
 
 /**
  * @param { import("knex").Knex } knex

@@ -7,15 +7,24 @@ import Hapi from '@hapi/hapi';
 import HapiCookie from '@hapi/cookie';
 import HapiBasic from '@hapi/basic';
 import HapiRateLimit from 'hapi-rate-limit';
-import { serverExtensionsPlugin } from './plugins/serverExtensionsPlugin.js';
-import { apiPlugin } from './plugins/api/apiPlugin.js';
-import { loggerPlugin } from './plugins/loggerPlugin.js';
+import { serverExtensionsPlugin } from './plugins/serverExtensions/index.js';
+import { loggerPlugin } from './plugins/logger/index.js';
+import { addressDiscountPlugin } from './plugins/addressDiscounts/index.js';
+import { allowedStreetsPlugin } from './plugins/allowedStreets/index.js';
+import { authPlugin } from './plugins/auth/index.js';
+import { basePlugin } from './plugins/base/index.js';
+// import { cartPlugin } from './plugins/cart/index.js';
+import { productPlugin } from './plugins/products/index.js';
+import { productTypesPlugin } from './plugins/productTypes/index.js';
+import { servicePlugin } from './plugins/service/index.js';
+import { serviceMenuPlugin } from './plugins/serviceMenus/index.js';
 
 dotenv.config();
 
-const isProd = process.env.NODE_ENV === 'production';
+async function init() {
+    const isProd = process.env.NODE_ENV === 'production';
+    const apiPrefix = '/api/v1';
 
-const init = async () => {
     const serverOptions = {
         host: process.env.SERVER_HOST || '127.0.0.1',
         port: process.env.PORT || 10000,
@@ -52,6 +61,8 @@ const init = async () => {
 
     // Register plugins here
     await server.register([HapiCookie, HapiBasic]);
+    await server.register(serverExtensionsPlugin);
+    await server.register(loggerPlugin);
 
     // https://www.npmjs.com/package/hapi-rate-limit
     await server.register({
@@ -64,26 +75,92 @@ const init = async () => {
     });
 
     await server.register({
-        plugin: apiPlugin,
-        options: { /* your options */ },
+        plugin: basePlugin,
+        options: {}
+    });
+
+    await server.register({
+        plugin: authPlugin,
+        options: {},
         routes: {
-            prefix: '/api/v1'
+            prefix: apiPrefix
         }
     });
 
-    await server.register(serverExtensionsPlugin);
-    await server.register(loggerPlugin);
+    await server.register({
+        plugin: addressDiscountPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
 
-    // server.route({
-    //     method: 'GET',
-    //     path: '/',
-    //     handler: () => 'Hello, world!'
+    await server.register({
+        plugin: allowedStreetsPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    // await server.register({
+    //     plugin: cartPlugin,
+    //     options: {},
+    //     routes: {
+    //         prefix: apiPrefix
+    //     }
     // });
+
+    await server.register({
+        plugin: productPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    await server.register({
+        plugin: productTypesPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    await server.register({
+        plugin: servicePlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    await server.register({
+        plugin: serviceMenuPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    // server.dependency(
+    //     [],
+    //     function (server) {
+    //         // serverExtensions(server);
+    //         // cartRoutes(server);
+    //         addressDiscountRoutes(server);
+    //         allowedStreetRoutes(server);
+    //         authRoutes(server);
+    //         productRoutes(server);
+    //         productTypeRoutes(server);
+    //         serviceRoutes(server);
+    //         serviceMenuRoutes(server);
+    //     }
+    // );
 
     await server.start();
     console.log('Server running on %s', server.info.uri);
 };
-
 
 process.on('unhandledRejection', (err) => {
     console.log(err);

@@ -1,8 +1,4 @@
-
-import tables from '../utils/tables.js';
-const tableName = tables.service;
-
-
+import { tableName } from '../../plugins/service/ServiceModel.js';
 
 /**
  * @param { import("knex").Knex } knex
@@ -13,13 +9,13 @@ export async function up(knex) {
         tableName,
         (t) => {
             t.uuid('id').primary().unique().defaultTo(knex.raw('uuid_generate_v4()'));
-            t.timestamp('start_at', { useTz: true }).nullable();
-            t.timestamp('end_at', { useTz: true }).nullable();
+            t.timestamp('start_at', { useTz: false }).nullable();
+            t.timestamp('end_at', { useTz: false }).nullable();
             t.string('notes').nullable();
             t.integer('inventory_count').defaultTo(0);
 
-            t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
-            t.timestamp('updated_at', { useTz: true }).nullable();
+            t.timestamp('created_at', { useTz: false }).notNullable().defaultTo(knex.fn.now());
+            t.timestamp('updated_at', { useTz: false }).nullable();
 
             // Foreign Key
             // A daily service has one service menu

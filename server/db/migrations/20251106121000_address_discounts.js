@@ -1,6 +1,4 @@
-import tables from '../utils/tables.js';
-
-const tableName = tables.address_discounts;
+import { tableName } from '../../plugins/addressDiscounts/AddressDiscountModel.js';
 
 /**
  * @param { import("knex").Knex } knex

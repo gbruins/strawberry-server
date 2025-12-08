@@ -1,6 +1,4 @@
-import tables from '../utils/tables.js';
-
-const tableName = tables.allowed_streets;
+import { tableName } from '../../plugins/allowedStreets/AllowedStreetModel.js';
 
 /**
  * @param { import("knex").Knex } knex

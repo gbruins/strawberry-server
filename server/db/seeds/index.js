@@ -1,7 +1,7 @@
-import address_discounts from './seed-data/address_discounts.js';
-import allowed_streets from './seed-data/allowed_streets.js';
-import product_types from './seed-data/product_types.js';
-import products from './seed-data/products.js';
+import address_discounts from '../../plugins/addressDiscounts/db-seed.js';
+import allowed_streets from '../../plugins/allowedStreets/db-seed.js';
+import product_types from '../../plugins/productTypes/db-seed.js';
+import products from '../../plugins/products/db-seed.js';
 
 /**
  * @param knex

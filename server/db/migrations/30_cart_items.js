@@ -1,6 +1,5 @@
-
-import tables from '../utils/tables.js';
-const tableName = tables.cart_items;
+// import { tableName } from '../../plugins/cartItems/index.js'; // TODO
+const tableName = 'cart_items'; // TODO: replace with above line when possible
 
 
 /**

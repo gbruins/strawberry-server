@@ -1,7 +1,4 @@
-
-import tables from '../utils/tables.js';
-const tableName = tables.product_types;
-
+import { tableName } from '../../plugins/productTypes/ProductTypeModel.js';
 
 /**
  * @param { import("knex").Knex } knex
