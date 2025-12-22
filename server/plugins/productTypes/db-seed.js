@@ -1,4 +1,4 @@
-import { tableName } from './ProductModel.js';
+import { tableName } from './ProductTypeModel.js';
 
 function seed(knex) {
     return knex(tableName)

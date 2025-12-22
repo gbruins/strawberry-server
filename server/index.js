@@ -13,7 +13,7 @@ import { addressDiscountPlugin } from './plugins/addressDiscounts/index.js';
 import { allowedStreetsPlugin } from './plugins/allowedStreets/index.js';
 import { authPlugin } from './plugins/auth/index.js';
 import { basePlugin } from './plugins/base/index.js';
-// import { cartPlugin } from './plugins/cart/index.js';
+import { cartPlugin } from './plugins/cart/index.js';
 import { productPlugin } from './plugins/products/index.js';
 import { productTypesPlugin } from './plugins/productTypes/index.js';
 import { servicePlugin } from './plugins/service/index.js';
@@ -103,13 +103,13 @@ async function init() {
         }
     });
 
-    // await server.register({
-    //     plugin: cartPlugin,
-    //     options: {},
-    //     routes: {
-    //         prefix: apiPrefix
-    //     }
-    // });
+    await server.register({
+        plugin: cartPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
 
     await server.register({
         plugin: productPlugin,

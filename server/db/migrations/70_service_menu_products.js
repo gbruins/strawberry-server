@@ -1,4 +1,6 @@
 import { tableNameProductsJunction as tableName } from '../../plugins/serviceMenus/ServiceMenuModel.js';
+import { tableName as tableNameServiceMenus } from '../../plugins/serviceMenus/ServiceMenuModel.js';
+import { tableName as tableNameProducts } from '../../plugins/products/ProductModel.js';
 
 /**
  * @param { import("knex").Knex } knex
@@ -13,13 +15,13 @@ export async function up(knex) {
         t.uuid('service_menu_id')
             .notNullable()
             .references('id')
-            .inTable(tables.service_menus)
+            .inTable(tableNameServiceMenus)
             .onDelete('CASCADE');
 
         t.uuid('product_id')
             .notNullable()
             .references('id')
-            .inTable(tables.products)
+            .inTable(tableNameProducts)
             .onDelete('CASCADE');
 
         t.primary(['service_menu_id', 'product_id']);

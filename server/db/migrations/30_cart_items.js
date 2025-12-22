@@ -1,6 +1,5 @@
-// import { tableName } from '../../plugins/cartItems/index.js'; // TODO
-const tableName = 'cart_items'; // TODO: replace with above line when possible
-
+import { tableName as tableNameCartItems } from '../../plugins/cart/CartItemModel.js';
+import { tableName as tableNameCarts } from '../../plugins/cart/CartModel.js';
 
 /**
  * @param { import("knex").Knex } knex
@@ -8,7 +7,7 @@ const tableName = 'cart_items'; // TODO: replace with above line when possible
  */
 export async function up(knex) {
     await knex.schema.createTable(
-        tableName,
+        tableNameCartItems,
         (t) => {
             t.uuid('id').primary().unique().defaultTo(knex.raw('uuid_generate_v4()'));
             t.integer('qty').nullable();
@@ -21,7 +20,7 @@ export async function up(knex) {
             t.uuid('cart_id')
                 .notNullable()
                 .references('id')
-                .inTable(tables.carts)
+                .inTable(tableNameCarts)
                 .onDelete('CASCADE');
 
             t.index([

@@ -18,7 +18,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a list of services',
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),
@@ -28,7 +28,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a service by ID',
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),

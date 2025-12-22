@@ -17,7 +17,7 @@ export const allowedStreetsPlugin = {
                 path: '/allowed_streets',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),
@@ -26,7 +26,7 @@ export const allowedStreetsPlugin = {
                 path: '/allowed_street',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),

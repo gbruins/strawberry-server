@@ -16,7 +16,6 @@ export default class CartModel extends BaseModel {
         super();
         this.tableName = tableName;
         this.hidden = ['deleted_at'];
-
         this.schema = {
             id: Joi.string().uuid().allow(null),
             billing_firstName: getJoiStringOrNull(),

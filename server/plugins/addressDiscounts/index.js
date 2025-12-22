@@ -17,7 +17,7 @@ export const addressDiscountPlugin = {
                 path: '/address_discounts',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),
@@ -26,7 +26,7 @@ export const addressDiscountPlugin = {
                 path: '/address_discount',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),

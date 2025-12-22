@@ -1,4 +1,4 @@
-import { tableName } from './AddressDiscountModel';
+import { tableName } from './AddressDiscountModel.js';
 
 /**
  * Seed data for address_discounts table

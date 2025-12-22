@@ -1,4 +1,4 @@
-import { tableName } from '../../plugins/carts/CartModel.js';
+import { tableName } from '../../plugins/cart/CartModel.js';
 
 /**
  * @param { import("knex").Knex } knex

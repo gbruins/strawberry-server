@@ -17,7 +17,7 @@ export const serviceMenuPlugin = {
                 path: '/service_menus',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),
@@ -26,7 +26,7 @@ export const serviceMenuPlugin = {
                 path: '/service_menu',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),

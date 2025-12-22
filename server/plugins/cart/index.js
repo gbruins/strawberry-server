@@ -1,209 +1,148 @@
 import Joi from 'joi';
 import CartController from './CartController.js';
-
-const CartCtrl = new CartController();
+import CartItemController from './CartItemController.js';
+import {
+    getGenericConfig_SEARCH,
+    getGenericConfig_GET,
+    getGenericConfig_POST,
+    getGenericConfig_PUT,
+    getGenericConfig_DELETE
+ } from '../../utils/routeUtils.js';
 
 export const cartPlugin = {
     name: 'cartPlugin',
     version: '1.0.0',
     register: async function (server, options) {
+        const Ctrl = new CartController();
+        const CartItemCtrl = new CartItemController();
+
         server.route([
-            {
-                method: 'GET',
+            getGenericConfig_SEARCH(Ctrl, {
                 path: '/carts',
                 options: {
                     description: 'Gets a list of carts',
-                    // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
-                    // },
-                    validate: {
-                        query: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForSearch()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.searchHandler(request, h);
+                    auth: {
+                        // App should not be able to see other carts
                     }
                 }
-            },
-            {
-                method: 'GET',
+            }),
+
+            getGenericConfig_GET(Ctrl, {
                 path: '/cart',
                 options: {
-                    description: 'Gets a shopping cart for the given ID',
-                    // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
-                    // },
-                    validate: {
-                        query: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForId()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.getByIdHandler(request, h);
+                    description: 'Gets a cart by ID',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
                     }
                 }
-            },
-            {
-                method: 'POST',
+            }),
+
+            getGenericConfig_POST(Ctrl, {
                 path: '/cart',
                 options: {
-                    description: 'Creates or updates a Cart',
-                    // auth: {
-                    //     strategies: ['storeauth']
-                    // },
+                    description: 'Adds a new cart',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    }
+                }
+            }),
+
+            getGenericConfig_PUT(Ctrl, {
+                path: '/cart',
+                options: {
+                    description: 'Updates a cart',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    }
+                }
+            }),
+
+            getGenericConfig_DELETE(Ctrl, {
+                path: '/cart',
+                options: {
+                    description: 'Deletes a cart',
+                    auth: {
+                        // App should not be able to delete carts
+                        strategies: ['adminCookie', 'apiKey']
+                    }
+                }
+            }),
+
+            {
+                method: 'PUT',
+                path: '/cart/notes',
+                options: {
+                    description: 'Updates the admin notes for a cart',
+                    auth: {
+                        strategies: ['adminCookie']
+                    },
                     validate: {
                         payload: Joi.object({
-                            // TODO: I think this should be more restrictive.
-                            // I dont think we want the client to update every Cart property
-                            ...CartCtrl.service.getValidationSchemaForUpdate()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
+                            ...Ctrl.getIdSchema(),
+                            ...Ctrl.getAdminNotesSchema(),
+                        })
                     },
                     handler: (request, h) => {
-                        return CartCtrl.upsertHandler(request, h);
+                        return Ctrl.updateOrderNotesHandler(request, h);
                     }
                 }
             },
 
-
-            /******************
-             * ORDER
-             ******************/
+            // CART ITEMS
             {
-                method: 'GET',
-                path: '/cart/order',
+                method: 'POST',
+                path: '/cart/item',
                 options: {
-                    description: 'Gets a closed cart by ID',
+                    description: 'Adds an item to Cart',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            ...CartItemCtrl.service.getValidationSchemaForAdd()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return CartItemCtrl.createHandler(request, h);
+                    }
+                }
+            },
+            {
+                method: 'PUT',
+                path: '/cart/item',
+                options: {
+                    description: 'Updates a CartItem',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            ...CartItemCtrl.service.getValidationSchemaForUpdate()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return CartItemCtrl.updateHandler(request, h);
+                    }
+                }
+            },
+            {
+                method: 'DELETE',
+                path: '/cart/item',
+                options: {
+                    description: 'Deletes a CartItem',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
                     validate: {
                         query: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForId(),
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
+                            ...CartItemCtrl.service.getValidationSchemaForId()
+                        })
                     },
                     handler: (request, h) => {
-                        return CartCtrl.getOrderHandler(request, h);
+                        return CartItemCtrl.deleteHandler(request, h);
                     }
                 }
             },
-            {
-                method: 'POST',
-                path: '/cart/order/resend-confirmation',
-                options: {
-                    description: 'Re-sends the order confirmation email for a given closed cart',
-                    validate: {
-                        payload: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForId(),
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.resendOrderConfirmaionHandler(request, h);
-                    }
-                }
-            },
-
-
-            /******************
-             * PAYMENT
-             ******************/
-            {
-                method: 'GET',
-                path: '/cart/payment',
-                options: {
-                    description: 'Gets payment info for the given cart id',
-                    // auth: {
-                    //     strategies: ['storeauth']
-                    // },
-                    validate: {
-                        query: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForId(),
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.getPaymentHandler(request, h);
-                    }
-                }
-            },
-            {
-                method: 'POST',
-                path: '/cart/payment/intent',
-                options: {
-                    description: 'Submits an order to Stripe for a given cart',
-                    // auth: {
-                    //     strategies: ['storeauth', 'session']
-                    // },
-                    validate: {
-                        payload: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForId(),
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.submitStripeOrderForCartHandler(request, h);
-                    }
-                }
-            },
-            {
-                method: 'POST',
-                path: '/cart/payment',
-                options: {
-                    description: 'Persist a successful payment',
-                    // auth: {
-                    //     strategies: ['storeauth', 'session']
-                    // },
-                    validate: {
-                        payload: Joi.object({
-                            ...CartCtrl.service.getValidationSchemaForSaveStripePayment()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
-                    },
-                    handler: (request, h) => {
-                        return CartCtrl.paymentSuccessHandler(request, h);
-                    }
-                }
-            },
-
-            {
-                method: 'GET',
-                path: '/cart/{param*}',
-                options: {
-                    description: 'Returns 404 response',
-                    // auth: {
-                    //     strategies: ['storeauth', 'session']
-                    // },
-                    handler: (request, h) => {
-                        throw Boom.notFound();
-                    }
-                }
-            }
         ]);
     }
 }

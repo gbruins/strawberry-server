@@ -19,7 +19,7 @@ export const productTypesPlugin = {
                 path: '/product_types',
                 options: {
                     // auth: {
-                    //     // strategies: ['storeauth', 'adminCookie']
+                    //     // strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),
@@ -28,7 +28,7 @@ export const productTypesPlugin = {
                 path: '/product_type',
                 options: {
                     // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
+                    //     strategies: ['apiKey', 'adminCookie']
                     // },
                 }
             }),

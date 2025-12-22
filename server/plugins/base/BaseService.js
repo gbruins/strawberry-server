@@ -1,5 +1,7 @@
 import Joi from 'joi';
-import { assert }from '@hapi/hoek';
+import JSON5 from 'json5';
+import qs from 'qs';
+import { assert } from '@hapi/hoek';
 import isObject from 'lodash.isobject';
 import isString from 'lodash.isstring';
 import { makeArray } from '../../utils/utils.js';
@@ -58,9 +60,9 @@ export default class BaseService {
             // order by:
             // makeArray(config.orderBy).forEach((str) => {
             makeArray(config.where?._sort).forEach((str) => {
-                const pair = str.split(':').map(val => val.trim());
+                const pair = str?.split(':').map(val => val.trim());
 
-                if(pair.length === 2
+                if(pair?.length === 2
                     && ['asc', 'desc'].includes( pair[1].toLowerCase() )
                     && this.model.getAllColumns().includes(pair[0])) {
                         qb.orderBy(pair[0], pair[1].toLowerCase())
@@ -154,7 +156,7 @@ export default class BaseService {
         });
 
         try {
-            const payload = config.data ? this.prepareForUpsert(config.data) : {};
+            const payload = config?.data ? this.prepareForUpsert(config.data) : {};
             delete payload.id;
 
             // awaiting the reponse will cause errors to be caught
@@ -408,8 +410,8 @@ export default class BaseService {
      * @example query values:
      * { 'id': { 'ne': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } }
      * { 'id': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } => same as 'eq'
-     * { 'closed_at': { 'null' : false } }  => 'closed_at is not null'
-     * { 'closed_at': { 'null' : true } }  => 'closed_at is null'
+     * { 'closed_at': { 'is_null' : false } }  => 'closed_at is not null'
+     * { 'closed_at': { 'is_null' : true } }  => 'closed_at is null'
      * { 'sub_type': { 'bitwise_and_gt': {'left':2, 'right':0} } }
      *
      *
@@ -425,13 +427,28 @@ export default class BaseService {
                 const orig = query[key];
 
                 try {
-                    if(isString(query[key])) {
-                        query[key] = JSON.parse(query[key]);
+                    if (isString(query[key])) {
+                        const s = query[key].trim();
+
+                        if (s.startsWith('{')) {
+                            // tolerant parse (accepts single quotes, trailing commas, etc.)
+                            try {
+                                query[key] = JSON5.parse(s);
+                            }
+                            catch (e) {
+                                // fallback to qs.parse for query-string style input
+                                query[key] = qs.parse(s);
+                            }
+                        }
+                        else {
+                            query[key] = orig;
+                        }
                     }
                 }
-                catch(err) {
-                    query[key] = orig
+                catch (err) {
+                    query[key] = s;
                 }
+
             }
         }
 
@@ -445,7 +462,7 @@ export default class BaseService {
             in: 'in',
             nin: 'nin',
             like: 'like',
-            null: 'null',
+            is_null: 'is_null',
             bitwise_and_gt: 'bitwise_and_gt'
         }
 
@@ -535,7 +552,8 @@ export default class BaseService {
                         addWhere(prop, 'LIKE', propValue);
                         break;
 
-                    case operators.null:
+                    // case operators.null:
+                    case operators.is_null:
                         if(propValue === 'true' || propValue === true) {
                             qb.whereNull(prop);
                         }

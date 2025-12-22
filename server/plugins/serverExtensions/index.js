@@ -11,15 +11,17 @@ export const serverExtensionsPlugin = {
         const AuthSvc = new AuthService();
 
         // Basic auth for store API usage
-        server.auth.strategy('storeauth', 'basic', {
-            validate: async (request, tenant_id, basic_auth_pwd) => {
+        server.auth.strategy('apiKey', 'basic', {
+            validate: async (request, userId, api_key) => {
                 try {
-                    const tenantData = await TenantSvc.basicAuthPasswordIsValid(tenant_id, basic_auth_pwd);
+                    const tenantData = await AuthSvc.apiKeyIsValid(userId, api_key);
+
+                    console.log('tenantData:', tenantData);
 
                     return {
                         isValid: tenantData ? true : false,
                         credentials: {
-                            tenant_id: tenantData.id
+                            userId: tenantData.id
                         }
                     }
                 }
@@ -87,8 +89,12 @@ export const serverExtensionsPlugin = {
         });
 
 
-        // server.auth.default('adminCookie');
+        // https://hapi.dev/tutorials/auth/?lang=en_US#default
+        server.auth.default('adminCookie');
 
+        // server.auth.default({
+        //     strategies: ['apiKey', 'adminCookie']
+        // });
 
         server.decorate('toolkit', 'apiSuccess', function (responseData) {
             const response = {};

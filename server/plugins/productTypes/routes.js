@@ -15,7 +15,7 @@ export default (server) => {
             path: '/product_types',
             options: {
                 // auth: {
-                //     // strategies: ['storeauth', 'adminCookie']
+                //     // strategies: ['apiKey', 'adminCookie']
                 // },
             }
         }),
@@ -24,7 +24,7 @@ export default (server) => {
             path: '/product_type',
             options: {
                 // auth: {
-                //     strategies: ['storeauth', 'adminCookie']
+                //     strategies: ['apiKey', 'adminCookie']
                 // },
             }
         }),

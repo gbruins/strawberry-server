@@ -1,3 +1,4 @@
+import Joi from 'joi';
 import Boom from '@hapi/boom';
 import isString from 'lodash.isstring';
 
@@ -211,6 +212,30 @@ export default class BaseController {
         catch(err) {
             global.logger.error(err);
             throw Boom.badRequest(err);
+        }
+    }
+
+
+    getPaginationSchema() {
+        return {
+            _sort: Joi.string().max(50),
+
+            _pageSize: Joi.alternatives().try(
+                Joi.number().integer().min(0),
+                Joi.string().max(5)
+            ),
+
+            _page: Joi.alternatives().try(
+                Joi.number().integer().min(0),
+                Joi.string().max(5)
+            )
+        };
+    }
+
+
+    getIdSchema() {
+        return {
+            id: Joi.string().uuid().required()
         }
     }
 

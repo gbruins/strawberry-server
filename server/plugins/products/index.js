@@ -16,17 +16,14 @@ export const productPlugin = {
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/products',
                 options: {
-                    description: 'Gets a list of products',
-                }
+                    description: 'Gets a list of products'
+                },
             }),
 
             getGenericConfig_GET(Ctrl, {
                 path: '/product',
                 options: {
-                    description: 'Gets a product by ID',
-                    // auth: {
-                    //     strategies: ['storeauth', 'adminCookie']
-                    // },
+                    description: 'Gets a product by ID'
                 }
             }),
 
