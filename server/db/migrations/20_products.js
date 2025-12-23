@@ -21,6 +21,7 @@ export async function up(knex) {
             // STRIPE
             t.string('stripe_price_id').nullable();
             t.string('stripe_product_id').nullable();
+            t.string('stripe_tax_code').nullable();
 
             // TIMESTAMPS
             t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());

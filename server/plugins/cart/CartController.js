@@ -1,5 +1,4 @@
 import Joi from 'joi';
-import JSON5 from 'json5';
 import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';

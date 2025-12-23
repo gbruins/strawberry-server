@@ -30,6 +30,7 @@ async function seed(knex) {
                         published: true,
                         base_price: 1500,
                         product_type: 1,
+                        stripe_tax_code: 'txcd_40060003',
                         ...obj
                     })
                 );

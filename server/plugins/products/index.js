@@ -1,10 +1,9 @@
+import Joi from 'joi';
 import ProductController from './ProductController.js';
 import {
     getGenericConfig_SEARCH,
-    getGenericConfig_GET,
-    getGenericConfig_POST,
-    getGenericConfig_PUT,
-    getGenericConfig_DELETE } from '../../utils/routeUtils.js';
+    getGenericConfig_GET
+} from '../../utils/routeUtils.js';
 
 export const productPlugin = {
     name: 'productPlugin',
@@ -27,26 +26,53 @@ export const productPlugin = {
                 }
             }),
 
-            getGenericConfig_POST(Ctrl, {
+            {
+                method: 'POST',
                 path: '/product',
                 options: {
-                    description: 'Adds a new product'
+                    description: 'Adds a new product',
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.service.getValidationSchemaForAdd()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.createHandler(request, h);
+                    }
                 }
-            }),
+            },
 
-            getGenericConfig_PUT(Ctrl, {
+            {
+                method: 'PUT',
                 path: '/product',
                 options: {
-                    description: 'Updates a product'
+                    description: 'Updates a product',
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.service.getValidationSchemaForUpdate()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.updateHandler(request, h);
+                    }
                 }
-            }),
+            },
 
-            getGenericConfig_DELETE(Ctrl, {
+            {
+                method: 'DELETE',
                 path: '/product',
                 options: {
-                    description: 'Deletes a product'
+                    description: 'Deletes a product',
+                    validate: {
+                        query: Joi.object({
+                            ...Ctrl.service.getValidationSchemaForId()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.deleteHandler(request, h);
+                    }
                 }
-            })
+            }
         ]);
     }
 };

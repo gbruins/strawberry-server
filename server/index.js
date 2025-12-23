@@ -18,6 +18,7 @@ import { productPlugin } from './plugins/products/index.js';
 import { productTypesPlugin } from './plugins/productTypes/index.js';
 import { servicePlugin } from './plugins/service/index.js';
 import { serviceMenuPlugin } from './plugins/serviceMenus/index.js';
+import { stripePlugin } from './plugins/stripe/index.js';
 
 dotenv.config();
 
@@ -77,6 +78,14 @@ async function init() {
     await server.register({
         plugin: basePlugin,
         options: {}
+    });
+
+    await server.register({
+        plugin: stripePlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
     });
 
     await server.register({

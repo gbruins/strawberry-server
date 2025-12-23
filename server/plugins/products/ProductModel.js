@@ -18,6 +18,7 @@ export default class ProductModel extends BaseModel {
             published: Joi.boolean(),
             stripe_price_id: Joi.string().allow(null),
             stripe_product_id: Joi.string().allow(null),
+            stripe_tax_code: Joi.string().allow(null),
             created_at: Joi.date(),
             updated_at: Joi.date(),
             deleted_at: Joi.date().allow(null)

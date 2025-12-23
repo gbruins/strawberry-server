@@ -16,7 +16,7 @@ export const serverExtensionsPlugin = {
                 try {
                     const tenantData = await AuthSvc.apiKeyIsValid(userId, api_key);
 
-                    console.log('tenantData:', tenantData);
+                    // console.log('tenantData:', tenantData);
 
                     return {
                         isValid: tenantData ? true : false,
