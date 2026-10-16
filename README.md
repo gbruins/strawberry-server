@@ -82,4 +82,4 @@ STRIPE_WEBHOOK_SECRET=whsec_...        # signing secret of the webhook endpoint
 STRIPE_AUTOMATIC_TAX=true              # optional; requires Stripe Tax to be set up
 ```
 
-Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.
+Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed`. Only cards are accepted, so a completed session is always paid. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.

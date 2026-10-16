@@ -116,7 +116,6 @@ export default class StripeController {
 
             switch(event.type) {
                 case 'checkout.session.completed':
-                case 'checkout.session.async_payment_succeeded':
                     await completeCartFromSession(event.data.object);
                     break;
             }

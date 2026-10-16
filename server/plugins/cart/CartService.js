@@ -112,11 +112,11 @@ export default class CartService extends BaseService {
     /**
      * Checks a cart access token.
      *
-     * @returns {Promise<{ exists: boolean, valid: boolean, closed: boolean }>}
+     * @returns {Promise<{ exists: boolean, valid: boolean, closed: boolean, checkoutSessionId: string|null }>}
      */
     async checkToken(cartId, token) {
         const row = await db
-            .select('token_hash', 'closed_at')
+            .select('token_hash', 'closed_at', 'stripe_order_id')
             .from(this.model.tableName)
             .where({ id: cartId })
             .whereNull('deleted_at')
@@ -134,7 +134,7 @@ export default class CartService extends BaseService {
             valid = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
         }
 
-        return { exists: true, valid, closed: !!row.closed_at };
+        return { exists: true, valid, closed: !!row.closed_at, checkoutSessionId: row.stripe_order_id };
     }
 
 

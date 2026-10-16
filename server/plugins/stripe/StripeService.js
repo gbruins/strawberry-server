@@ -236,13 +236,17 @@ async function createCheckoutSession({
 
     try {
         const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'], // Can add more like 'afterpay_clearpay', etc.
+            // Cards only. This also means a completed session is always paid, so the
+            // webhook doesn't need to handle delayed-payment events.
+            payment_method_types: ['card'],
             line_items: lineItems,
             mode,
             success_url: successUrl,
             cancel_url: cancelUrl,
             customer: customerId || undefined,
             metadata,
+            // Stripe's minimum is 30 minutes; a short window keeps the cart lock brief
+            expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
             billing_address_collection: 'required',
             phone_number_collection: { enabled: true },
             ...(clientReferenceId ? { client_reference_id: clientReferenceId } : {}),
@@ -255,6 +259,11 @@ async function createCheckoutSession({
         console.error('Error creating Checkout Session:', error);
         throw error;
     }
+}
+
+
+async function retrieveCheckoutSession(sessionId) {
+    return stripe.checkout.sessions.retrieve(sessionId);
 }
 
 
@@ -340,6 +349,7 @@ export default {
     updatePrice,
     createCheckoutSession,
     expireCheckoutSession,
+    retrieveCheckoutSession,
     createPaymentIntent,
     findPricesByAmount,
     getTaxCodes,

@@ -8,6 +8,66 @@ const ProductSvc = new ProductService();
 
 const CHECKOUT_SESSION_ID_PREFIX = 'cs_';
 
+const isSessionId = (value) => typeof value === 'string' && value.startsWith(CHECKOUT_SESSION_ID_PREFIX);
+
+const clearSession = (cartId, sessionId) => {
+    return db('carts')
+        .where({ id: cartId, stripe_order_id: sessionId })
+        .whereNull('closed_at')
+        .update({ stripe_order_id: null, updated_at: db.fn.now() });
+};
+
+
+/**
+ * Whether the cart has a Stripe Checkout Session that can still be paid
+ * (or has just been paid and is waiting for its webhook). Carts are locked
+ * against edits while this is true, so what is paid always matches the cart.
+ * Expired sessions are released.
+ */
+export async function isCheckoutInProgress(cartId, sessionId) {
+    if(!isSessionId(sessionId)) {
+        return false;
+    }
+
+    const session = await StripeService.retrieveCheckoutSession(sessionId);
+
+    if(session.status === 'expired') {
+        await clearSession(cartId, sessionId);
+        return false;
+    }
+
+    return true;
+}
+
+
+/**
+ * Abandons an open checkout so the cart can be edited again.
+ *
+ * @returns {Promise<{ status: 'cancelled' | 'none' | 'complete' }>}
+ */
+export async function cancelCheckout(cartId) {
+    const cart = await db('carts').where({ id: cartId }).whereNull('deleted_at').first('stripe_order_id');
+    const sessionId = cart?.stripe_order_id;
+
+    if(!isSessionId(sessionId)) {
+        return { status: 'none' };
+    }
+
+    const session = await StripeService.retrieveCheckoutSession(sessionId);
+
+    if(session.status === 'complete') {
+        return { status: 'complete' };
+    }
+
+    if(session.status === 'open') {
+        await StripeService.expireCheckoutSession(sessionId);
+    }
+
+    await clearSession(cartId, sessionId);
+
+    return { status: 'cancelled' };
+}
+
 function getStorefrontUrl() {
     const url = process.env.STOREFRONT_URL;
 
@@ -71,8 +131,16 @@ export async function createCheckoutForCart(cartId) {
     }
 
     // Only one live session per cart, otherwise a customer could pay twice
-    if(cart.stripe_order_id?.startsWith(CHECKOUT_SESSION_ID_PREFIX)) {
-        await StripeService.expireCheckoutSession(cart.stripe_order_id);
+    if(isSessionId(cart.stripe_order_id)) {
+        const previous = await StripeService.retrieveCheckoutSession(cart.stripe_order_id);
+
+        if(previous.status === 'complete') {
+            throw new Error('A payment for this cart is already being processed');
+        }
+
+        if(previous.status === 'open') {
+            await StripeService.expireCheckoutSession(previous.id);
+        }
     }
 
     const storefrontUrl = getStorefrontUrl();
@@ -80,7 +148,7 @@ export async function createCheckoutForCart(cartId) {
     const session = await StripeService.createCheckoutSession({
         lineItems,
         successUrl: `${storefrontUrl}/order/complete?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${storefrontUrl}/`,
+        cancelUrl: `${storefrontUrl}/cart?checkout=cancelled`,
         clientReferenceId: cart.id,
         metadata: { cart_id: cart.id },
         automaticTax: process.env.STRIPE_AUTOMATIC_TAX === 'true',
@@ -108,7 +176,6 @@ export async function completeCartFromSession(session) {
     }
 
     if(session.payment_status !== 'paid') {
-        // e.g. delayed payment methods; wait for async_payment_succeeded
         return { handled: false };
     }
 

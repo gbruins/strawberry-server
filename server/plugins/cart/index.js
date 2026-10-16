@@ -90,7 +90,7 @@ export const cartPlugin = {
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     plugins: {
                         'hapi-rate-limit': { pathLimit: false, userPathLimit: 10 }
                     },
@@ -101,6 +101,26 @@ export const cartPlugin = {
                     },
                     handler: (request, h) => {
                         return Ctrl.checkoutHandler(request, h);
+                    }
+                }
+            },
+
+            {
+                method: 'POST',
+                path: '/cart/checkout/cancel',
+                options: {
+                    description: 'Abandons the open Stripe Checkout Session so the cart can be edited again',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.getIdSchema()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.cancelCheckoutHandler(request, h);
                     }
                 }
             },

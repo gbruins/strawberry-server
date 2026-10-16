@@ -1,6 +1,7 @@
 import Boom from '@hapi/boom';
 import db from '../../db/knex.js';
 import CartService from './CartService.js';
+import { isCheckoutInProgress } from './CheckoutService.js';
 
 export const CART_TOKEN_HEADER = 'x-cart-token';
 
@@ -13,9 +14,11 @@ const CartSvc = new CartService();
  *
  * @param {Function} getCartId  (request) => cart id, or a promise of it
  * @param {Object} [opts]
- * @param {boolean} [opts.mutates] when true, store callers can't modify closed carts
+ * @param {boolean} [opts.mutates] when true, store callers can't modify closed carts, or
+ *   carts with a Checkout Session in progress (unless allowDuringCheckout)
+ * @param {boolean} [opts.allowDuringCheckout] for the routes that start or cancel a checkout
  */
-export function requireCartAccess(getCartId, { mutates = false } = {}) {
+export function requireCartAccess(getCartId, { mutates = false, allowDuringCheckout = false } = {}) {
     return async (request, h) => {
         if(request.auth.strategy === 'adminCookie') {
             return h.continue;
@@ -27,7 +30,7 @@ export function requireCartAccess(getCartId, { mutates = false } = {}) {
             throw Boom.badRequest('cart_id is required');
         }
 
-        const { exists, valid, closed } = await CartSvc.checkToken(
+        const { exists, valid, closed, checkoutSessionId } = await CartSvc.checkToken(
             cartId,
             request.headers[CART_TOKEN_HEADER]
         );
@@ -39,6 +42,22 @@ export function requireCartAccess(getCartId, { mutates = false } = {}) {
 
         if(mutates && closed) {
             throw Boom.conflict('Cart is closed');
+        }
+
+        if(mutates && !allowDuringCheckout && checkoutSessionId) {
+            let inProgress;
+
+            try {
+                inProgress = await isCheckoutInProgress(cartId, checkoutSessionId);
+            }
+            catch(err) {
+                global.logger.error(err);
+                throw Boom.badGateway('Could not verify checkout status');
+            }
+
+            if(inProgress) {
+                throw Boom.conflict('Checkout in progress');
+            }
         }
 
         return h.continue;
