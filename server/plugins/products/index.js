@@ -4,6 +4,7 @@ import {
     getGenericConfig_SEARCH,
     getGenericConfig_GET
 } from '../../utils/routeUtils.js';
+import { publishedOnlyForStore, publishedByIdForStore } from './storeVisibility.js';
 
 export const productPlugin = {
     name: 'productPlugin',
@@ -18,7 +19,8 @@ export const productPlugin = {
                     description: 'Gets a list of products',
                     auth: {
                         strategies: ['apiKey', 'adminCookie']
-                    }
+                    },
+                    pre: [{ method: publishedOnlyForStore }]
                 },
             }),
 
@@ -28,7 +30,8 @@ export const productPlugin = {
                     description: 'Gets a product by ID',
                     auth: {
                         strategies: ['apiKey', 'adminCookie']
-                    }
+                    },
+                    pre: [{ method: publishedByIdForStore }]
                 }
             }),
 
