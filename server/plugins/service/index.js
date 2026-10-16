@@ -15,6 +15,20 @@ export const servicePlugin = {
         server.route([
             {
                 method: 'GET',
+                path: '/services/next/stream',
+                handler: (request, h) => Ctrl.streamHandler(request, h),
+                options: {
+                    description: 'Server-Sent Events stream of the service state',
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
+                    timeout: { socket: false, server: false },
+                    response: { emptyStatusCode: 200 }
+                }
+            },
+
+            {
+                method: 'GET',
                 path: '/services/next',
                 handler: (request, h) => Ctrl.nextHandler(request, h),
                 options: {

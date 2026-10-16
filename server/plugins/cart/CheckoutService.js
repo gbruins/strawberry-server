@@ -2,6 +2,7 @@ import CartService from './CartService.js';
 import ProductService from '../products/ProductService.js';
 import StripeService from '../stripe/StripeService.js';
 import db from '../../db/knex.js';
+import ServiceStream from '../service/ServiceStream.js';
 
 const CartSvc = new CartService();
 const ProductSvc = new ProductService();
@@ -64,6 +65,7 @@ export async function cancelCheckout(cartId) {
     }
 
     await clearSession(cartId, sessionId);
+    ServiceStream.publish();
 
     return { status: 'cancelled' };
 }
@@ -238,6 +240,8 @@ export async function completeCartFromSession(session) {
         closed_at: db.fn.now(),
         updated_at: db.fn.now()
     });
+
+    ServiceStream.publish();
 
     return { handled: true, cartId };
 }
