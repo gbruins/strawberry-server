@@ -27,15 +27,19 @@ export const serverExtensionsPlugin = {
         // CORS cookie notes:
         // * To set a cookie via CORS ajax requests, SameSite=None is required
         // * SameSite=None requires Secure to be true
+        // Set SESSION_COOKIE_SECURE=false when serving over plain HTTP (no TLS),
+        // otherwise browsers discard the cookie.
+        const cookieSecure = process.env.SESSION_COOKIE_SECURE !== 'false';
+
         server.auth.strategy('adminCookie', 'cookie', {
             // https://hapi.dev/module/cookie/api/?v=11.0.1
             cookie: {
                 name: 'sbsession',
                 password: process.env.SESSION_COOKIE_PASSWORD,
-                isSecure: true,
+                isSecure: cookieSecure,
                 isHttpOnly: true,
-                isSameSite: 'None', // 'None' also requires isSecure=true
-                domain: process.env.SESSION_COOKIE_DOMAIN,
+                isSameSite: cookieSecure ? 'None' : 'Lax', // 'None' also requires isSecure=true
+                domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
                 path: '/',
                 // ttl: 3600000, // one hour
                 // ttl: 60000, // one minute
