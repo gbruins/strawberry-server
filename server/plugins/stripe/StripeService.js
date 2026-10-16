@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET; // TODO: Set this in your environment variables
 
 /*****************
 * STRIPE PRODUCTS
@@ -228,6 +227,8 @@ async function createCheckoutSession({
     cancelUrl,
     customerId = null,
     metadata = {},
+    clientReferenceId = null,
+    automaticTax = false,
 }) {
     if (!lineItems || lineItems.length === 0 || !successUrl || !cancelUrl) {
         throw new Error('lineItems, successUrl, and cancelUrl are required');
@@ -240,8 +241,12 @@ async function createCheckoutSession({
             mode,
             success_url: successUrl,
             cancel_url: cancelUrl,
-            customer: customerId,
+            customer: customerId || undefined,
             metadata,
+            billing_address_collection: 'required',
+            phone_number_collection: { enabled: true },
+            ...(clientReferenceId ? { client_reference_id: clientReferenceId } : {}),
+            ...(automaticTax ? { automatic_tax: { enabled: true } } : {}),
         });
 
         return session;
@@ -249,6 +254,20 @@ async function createCheckoutSession({
     catch (error) {
         console.error('Error creating Checkout Session:', error);
         throw error;
+    }
+}
+
+
+/**
+ * Expires an open Checkout Session. Already completed or expired sessions are ignored.
+ */
+async function expireCheckoutSession(sessionId) {
+    try {
+        await stripe.checkout.sessions.expire(sessionId);
+    }
+    catch (error) {
+        // Expected when the session is already complete or expired
+        console.warn('Could not expire Checkout Session:', error.message);
     }
 }
 
@@ -296,6 +315,8 @@ async function createPaymentIntent({
  * @returns {Object} Verified Stripe Event object
  */
 function verifyWebhookEvent(payload, signature) {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
     if (!webhookSecret) {
         throw new Error('STRIPE_WEBHOOK_SECRET is not set');
     }
@@ -318,6 +339,7 @@ export default {
     createPrice,
     updatePrice,
     createCheckoutSession,
+    expireCheckoutSession,
     createPaymentIntent,
     findPricesByAmount,
     getTaxCodes,

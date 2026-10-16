@@ -3,6 +3,7 @@ import Boom from '@hapi/boom';
 import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';
+import { createCheckoutForCart } from './CheckoutService.js';
 
 export default class CartController extends BaseController {
 
@@ -45,6 +46,22 @@ export default class CartController extends BaseController {
         };
 
         return super.updateHandler(req, h);
+    }
+
+    async checkoutHandler(request, h) {
+        try {
+            global.logger.info('REQUEST: CartController.checkoutHandler', {
+                meta: { id: request.payload.id }
+            });
+
+            const checkout = await createCheckoutForCart(request.payload.id);
+
+            return h.apiSuccess(checkout);
+        }
+        catch(err) {
+            global.logger.error(err);
+            throw Boom.badRequest(err.message);
+        }
     }
 
     getAdminNotesSchema() {

@@ -72,7 +72,9 @@ async function init() {
         options: {
             enabled: true,
             userLimit: 300,
-            pathLimit: 50
+            // A per-path cap counts all callers together, so it would throttle legitimate
+            // shoppers; sensitive routes set a per-caller userPathLimit instead.
+            pathLimit: false
          }
     });
 

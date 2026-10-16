@@ -83,6 +83,29 @@ export const cartPlugin = {
             }),
 
             {
+                method: 'POST',
+                path: '/cart/checkout',
+                options: {
+                    description: 'Creates a Stripe Checkout Session for a cart and returns its URL',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
+                    plugins: {
+                        'hapi-rate-limit': { pathLimit: false, userPathLimit: 10 }
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.getIdSchema()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.checkoutHandler(request, h);
+                    }
+                }
+            },
+
+            {
                 method: 'PUT',
                 path: '/cart/notes',
                 options: {

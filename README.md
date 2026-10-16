@@ -70,3 +70,16 @@ NODE_ENV=production
 ```
 
 This keeps local development convenient (with mkcert-generated certs) while ensuring production deployments rely on proper platform-managed TLS.
+
+## Checkout (Stripe)
+
+`POST /api/v1/cart/checkout` (store API key + `X-Cart-Token`) creates a Stripe-hosted Checkout Session from the cart's current product prices and returns `{ url }`. The cart is closed, and its tax, billing details and Stripe ids are set, only by the signed webhook `POST /api/v1/stripe/webhook`.
+
+Environment variables:
+```bash
+STOREFRONT_URL=http://localhost:5173   # where Stripe redirects after payment
+STRIPE_WEBHOOK_SECRET=whsec_...        # signing secret of the webhook endpoint
+STRIPE_AUTOMATIC_TAX=true              # optional; requires Stripe Tax to be set up
+```
+
+Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.

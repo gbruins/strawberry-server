@@ -60,6 +60,25 @@ export const stripePlugin = {
             },
             {
                 method: 'POST',
+                path: '/stripe/webhook',
+                options: {
+                    description: 'Receives Stripe webhook events (authenticated by Stripe signature)',
+                    auth: false,
+                    payload: {
+                        // The signature is computed over the raw body
+                        parse: false,
+                        output: 'data'
+                    },
+                    plugins: {
+                        'hapi-rate-limit': { enabled: false }
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.webhookHandler(request, h);
+                    }
+                }
+            },
+            {
+                method: 'POST',
                 path: '/stripe/price',
                 options: {
                     description: 'Adds a Stripe price',

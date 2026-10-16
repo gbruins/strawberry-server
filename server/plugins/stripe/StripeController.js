@@ -1,4 +1,6 @@
+import Boom from '@hapi/boom';
 import StripeService from './StripeService.js';
+import { completeCartFromSession } from '../cart/CheckoutService.js';
 
 export default class StripeController {
 
@@ -90,6 +92,41 @@ export default class StripeController {
         catch(err) {
             global.logger.error(err);
             throw Boom.badRequest(err);
+        }
+    }
+
+
+    async webhookHandler(request, h) {
+        let event;
+
+        try {
+            event = this.service.verifyWebhookEvent(
+                request.payload,
+                request.headers['stripe-signature']
+            );
+        }
+        catch(err) {
+            throw Boom.badRequest('Invalid signature');
+        }
+
+        try {
+            global.logger.info('REQUEST: StripeController.webhookHandler', {
+                meta: { id: event.id, type: event.type }
+            });
+
+            switch(event.type) {
+                case 'checkout.session.completed':
+                case 'checkout.session.async_payment_succeeded':
+                    await completeCartFromSession(event.data.object);
+                    break;
+            }
+
+            return h.response({ received: true });
+        }
+        catch(err) {
+            global.logger.error(err);
+            // A 5xx makes Stripe retry the event
+            throw Boom.internal();
         }
     }
 
