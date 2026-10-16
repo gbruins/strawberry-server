@@ -59,6 +59,10 @@ export default class CartController extends BaseController {
             return h.apiSuccess(checkout);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
             throw Boom.badRequest(err.message);
         }

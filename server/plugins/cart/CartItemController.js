@@ -23,6 +23,10 @@ export default class CartItemController extends BaseController {
             return h.apiSuccess(Cart);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
             throw Boom.badRequest(err);
         }
@@ -44,6 +48,10 @@ export default class CartItemController extends BaseController {
             return h.apiSuccess(Cart);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
             global.bugsnag(err);
             throw Boom.badRequest(err);

@@ -138,6 +138,46 @@ export default class CartService extends BaseService {
     }
 
 
+    /**
+     * Empties a cart whose service has ended, when it has no live checkout hold and has
+     * not been paid. Items from a past service must not carry over to the next one.
+     *
+     * @returns {Promise<boolean>} true if the cart was reset
+     */
+    async resetIfServiceEnded(cartId, now = new Date()) {
+        const row = await db('carts as c')
+            .join('service as s', 's.id', 'c.service_id')
+            .where('c.id', cartId)
+            .whereNull('c.closed_at')
+            .whereNull('c.deleted_at')
+            .where('s.end_at', '<=', now)
+            .where(function() {
+                this.whereNull('c.checkout_expires_at').orWhere('c.checkout_expires_at', '<=', now);
+            })
+            .first('c.id');
+
+        if(!row) {
+            return false;
+        }
+
+        await db.transaction(async (trx) => {
+            await trx('cart_items')
+                .where({ cart_id: cartId })
+                .whereNull('deleted_at')
+                .update({ deleted_at: trx.fn.now() });
+
+            await trx('carts').where({ id: cartId }).update({
+                service_id: null,
+                checkout_expires_at: null,
+                stripe_order_id: null,
+                updated_at: trx.fn.now()
+            });
+        });
+
+        return true;
+    }
+
+
     async getOrCreateCart(id) {
         const Cart = await this.getActiveCart(id);
 

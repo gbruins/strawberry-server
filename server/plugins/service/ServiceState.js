@@ -1,4 +1,5 @@
 import db from '../../db/knex.js';
+import { getRemaining } from './ServiceStock.js';
 
 const serviceFields = ['id', 'start_at', 'end_at', 'notes', 'inventory_count', 'max_per_order'];
 
@@ -12,26 +13,6 @@ const publicService = (s) => ({
     inventory_count: s.inventory_count,
     max_per_order: s.max_per_order
 });
-
-
-/**
- * Pizzas sold on paid (closed) carts for a service. Only items whose product
- * type is Pizza count; the product type is read from the products table.
- */
-export async function countPaidPizzas(serviceId, knex = db) {
-    const row = await knex('cart_items as ci')
-        .join('carts as c', 'c.id', 'ci.cart_id')
-        .join('products as p', db.raw(`p.id = (ci.product->>'id')::uuid`))
-        .join('product_types as pt', 'pt.value', 'p.product_type')
-        .where('c.service_id', serviceId)
-        .whereNotNull('c.closed_at')
-        .whereNull('ci.deleted_at')
-        .where('pt.slug', 'pizza')
-        .sum({ qty: 'ci.qty' })
-        .first();
-
-    return Number(row?.qty || 0);
-}
 
 
 async function fetchPublishedMenu(menuId, knex = db) {
@@ -91,8 +72,7 @@ export async function buildState(now = new Date(), knex = db) {
         return state;
     }
 
-    const paid = await countPaidPizzas(current.id, knex);
-    state.remaining = Math.max(0, current.inventory_count - paid);
+    state.remaining = await getRemaining(current, { now }, knex);
     state.menu = await fetchPublishedMenu(current.service_menu_id, knex);
     state.status = state.remaining > 0 ? 'open' : 'sold_out';
 

@@ -2,7 +2,16 @@ import CartService from './CartService.js';
 import ProductService from '../products/ProductService.js';
 import StripeService from '../stripe/StripeService.js';
 import db from '../../db/knex.js';
+import Boom from '@hapi/boom';
 import ServiceStream from '../service/ServiceStream.js';
+import {
+    HOLD_MARGIN_MS,
+    PROVISIONAL_HOLD_MS,
+    getRemaining,
+    countCartPizzas,
+    openServiceQuery,
+    limitError
+} from '../service/ServiceStock.js';
 
 const CartSvc = new CartService();
 const ProductSvc = new ProductService();
@@ -15,8 +24,63 @@ const clearSession = (cartId, sessionId) => {
     return db('carts')
         .where({ id: cartId, stripe_order_id: sessionId })
         .whereNull('closed_at')
-        .update({ stripe_order_id: null, updated_at: db.fn.now() });
+        .update({ stripe_order_id: null, checkout_expires_at: null, updated_at: db.fn.now() });
 };
+
+
+/**
+ * Releases a checkout hold, returning its pizzas to the pool.
+ */
+export async function releaseCheckoutHold(cartId) {
+    await db('carts')
+        .where({ id: cartId })
+        .whereNull('closed_at')
+        .update({ checkout_expires_at: null, updated_at: db.fn.now() });
+
+    ServiceStream.publish();
+}
+
+
+/**
+ * Checks the service window, the per-order cap and the stock, and writes a hold on
+ * the cart's pizzas, all while the service row is locked so that two checkouts can
+ * never take the last pizza. The hold is provisional until the Stripe session exists.
+ *
+ * @throws a 409 Boom with a code: service_closed, sold_out or over_limit
+ */
+export async function reserveCheckoutStock(cartId, { now = new Date() } = {}) {
+    await db.transaction(async (trx) => {
+        const cart = await trx('carts').where({ id: cartId }).whereNull('deleted_at').first('id', 'service_id');
+
+        const service = cart?.service_id
+            ? await trx('service').where({ id: cart.service_id }).forUpdate().first()
+            : await openServiceQuery(trx, now).forUpdate().first();
+
+        if(!service || new Date(service.start_at) > now || new Date(service.end_at) <= now) {
+            throw limitError(Boom, 'service_closed');
+        }
+
+        const pizzas = await countCartPizzas(cartId, {}, trx);
+
+        if(pizzas > 0) {
+            const remaining = await getRemaining(service, { now, excludeCartId: cartId }, trx);
+
+            if(remaining <= 0) {
+                throw limitError(Boom, 'sold_out');
+            }
+
+            if(pizzas > Math.min(service.max_per_order, remaining)) {
+                throw limitError(Boom, 'over_limit', { max_per_order: service.max_per_order, remaining });
+            }
+        }
+
+        await trx('carts').where({ id: cartId }).update({
+            service_id: service.id,
+            checkout_expires_at: new Date(now.getTime() + PROVISIONAL_HOLD_MS),
+            updated_at: trx.fn.now()
+        });
+    });
+}
 
 
 /**
@@ -51,6 +115,7 @@ export async function cancelCheckout(cartId) {
     const sessionId = cart?.stripe_order_id;
 
     if(!isSessionId(sessionId)) {
+        await releaseCheckoutHold(cartId);
         return { status: 'none' };
     }
 
@@ -147,17 +212,34 @@ export async function createCheckoutForCart(cartId) {
 
     const storefrontUrl = getStorefrontUrl();
 
-    const session = await StripeService.createCheckoutSession({
-        lineItems,
-        successUrl: `${storefrontUrl}/order/complete?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${storefrontUrl}/cart?checkout=cancelled`,
-        clientReferenceId: cart.id,
-        metadata: { cart_id: cart.id },
-        automaticTax: process.env.STRIPE_AUTOMATIC_TAX === 'true',
-    });
+    await reserveCheckoutStock(cart.id);
+    ServiceStream.publish();
+
+    let session;
+
+    try {
+        session = await StripeService.createCheckoutSession({
+            lineItems,
+            successUrl: `${storefrontUrl}/order/complete?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${storefrontUrl}/cart?checkout=cancelled`,
+            clientReferenceId: cart.id,
+            metadata: { cart_id: cart.id },
+            automaticTax: process.env.STRIPE_AUTOMATIC_TAX === 'true',
+        });
+    }
+    catch(err) {
+        await releaseCheckoutHold(cart.id);
+        throw err;
+    }
+
+    // The hold outlasts the session so a customer can never pay after it is released
+    const holdUntil = session.expires_at
+        ? new Date(session.expires_at * 1000 + HOLD_MARGIN_MS)
+        : new Date(Date.now() + PROVISIONAL_HOLD_MS + HOLD_MARGIN_MS);
 
     await db('carts').where({ id: cart.id }).update({
         stripe_order_id: session.id,
+        checkout_expires_at: holdUntil,
         updated_at: db.fn.now()
     });
 

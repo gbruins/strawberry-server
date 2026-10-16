@@ -151,6 +151,7 @@ export const cartPlugin = {
                 path: '/cart/item',
                 options: {
                     description: 'Adds an item to Cart',
+                    ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
@@ -170,6 +171,7 @@ export const cartPlugin = {
                 path: '/cart/item',
                 options: {
                     description: 'Updates a CartItem',
+                    ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
@@ -189,6 +191,7 @@ export const cartPlugin = {
                 path: '/cart/item',
                 options: {
                     description: 'Deletes a CartItem',
+                    ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },

@@ -30,7 +30,7 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
             throw Boom.badRequest('cart_id is required');
         }
 
-        const { exists, valid, closed, checkoutSessionId } = await CartSvc.checkToken(
+        let { exists, valid, closed, checkoutSessionId } = await CartSvc.checkToken(
             cartId,
             request.headers[CART_TOKEN_HEADER]
         );
@@ -38,6 +38,11 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
         // Same response for a missing cart and a bad token so cart IDs can't be probed
         if(!exists || !valid) {
             throw Boom.notFound();
+        }
+
+        if(exists && valid && !closed && await CartSvc.resetIfServiceEnded(cartId)) {
+            request.app.cartReset = 'service_ended';
+            checkoutSessionId = null;
         }
 
         if(mutates && closed) {
@@ -99,6 +104,11 @@ export function redactCartForStore(request, h) {
 
     if(request.response?.isBoom || isAdmin(request) || !data || typeof data !== 'object') {
         return h.continue;
+    }
+
+    // Tell the storefront once that the cart was emptied because its service ended
+    if(request.app.cartReset && !Array.isArray(data)) {
+        data.cart_reset = request.app.cartReset;
     }
 
     STORE_HIDDEN_FIELDS.forEach((field) => {

@@ -5,6 +5,14 @@ import ProductService from '../products/ProductService.js';
 import CartItemModel from './CartItemModel.js';
 import db from '../../db/knex.js';
 import { makeArray } from '../../utils/utils.js';
+import Boom from '@hapi/boom';
+import {
+    getRemaining,
+    getOpenService,
+    countCartPizzas,
+    isPizzaProduct,
+    limitError
+} from '../service/ServiceStock.js';
 
 export default class CartItemService extends BaseService {
 
@@ -12,6 +20,51 @@ export default class CartItemService extends BaseService {
         super(new CartItemModel());
     }
 
+
+
+    /**
+     * Makes sure the cart belongs to a service that is open right now, and that
+     * the pizzas in the cart (with `newQty` of the given product) stay within the
+     * per-order cap and the stock. Only pizzas are limited. Attaches the cart to
+     * the open service on its first item.
+     */
+    async assertWithinLimits(cart, productId, newQty) {
+        const now = new Date();
+        let service;
+
+        if(cart.service_id) {
+            service = await db('service').where({ id: cart.service_id }).first();
+
+            if(!service || new Date(service.start_at) > now || new Date(service.end_at) <= now) {
+                throw limitError(Boom, 'no_open_service');
+            }
+        }
+        else {
+            service = await getOpenService(now);
+
+            if(!service) {
+                throw limitError(Boom, 'no_open_service');
+            }
+        }
+
+        if(await isPizzaProduct(productId)) {
+            const others = await countCartPizzas(cart.id, { excludeProductId: productId });
+            const remaining = await getRemaining(service, { now, excludeCartId: cart.id });
+            const cap = Math.min(service.max_per_order, remaining);
+
+            if(others + newQty > cap) {
+                throw limitError(Boom, 'over_limit', {
+                    max_per_order: service.max_per_order,
+                    remaining
+                });
+            }
+        }
+
+        if(!cart.service_id) {
+            await db('carts').where({ id: cart.id }).update({ service_id: service.id, updated_at: db.fn.now() });
+            cart.service_id = service.id;
+        }
+    }
 
     /**
      * Creates or updates a cart item in a cart
@@ -53,17 +106,24 @@ export default class CartItemService extends BaseService {
             // If a matching CartItem was found then we use it's ID
             // so the qty gets updated.  Otherwise a new CartItem will be created
             const quantity = parseInt(data.qty, 10);
+            const newQty = existingCartItem?.qty ? parseInt(existingCartItem.qty, 10) + quantity : quantity;
+
+            await this.assertWithinLimits(Cart, Product.id, newQty);
 
             return this.upsertOne({
                 data: {
                     id: existingCartItem?.id || null,
-                    qty: existingCartItem?.qty ? parseInt(existingCartItem.qty, 10) + quantity : quantity,
+                    qty: newQty,
                     cart_id: Cart.id,
                     product: Product
                 }
             });
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             console.error(err);
             throw new Error(err.message);
         }
@@ -85,10 +145,18 @@ export default class CartItemService extends BaseService {
             throw new Error('CartItem does not exist');
         }
 
+        const newQty = parseInt(qty, 10);
+
+        // Lowering a quantity is always allowed
+        if(newQty > (CartItem.qty || 0)) {
+            const cart = await db('carts').where({ id: CartItem.cart_id }).first();
+            await this.assertWithinLimits(cart, CartItem.product?.id, newQty);
+        }
+
         // Update the CartItem qty value
         return this.update({
             where: { id },
-            data: { qty: parseInt(qty, 10) }
+            data: { qty: newQty }
         });
     }
 
