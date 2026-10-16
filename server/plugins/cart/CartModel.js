@@ -46,6 +46,8 @@ export default class CartModel extends BaseModel {
             updated_at: Joi.date(),
             deleted_at: Joi.date(),
             closed_at: Joi.date(),
+            service_id: Joi.string().uuid().allow(null),
+            checkout_expires_at: Joi.date().allow(null),
             shipped_at: Joi.date()
         }
     }

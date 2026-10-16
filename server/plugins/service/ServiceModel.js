@@ -16,6 +16,7 @@ export default class ServiceModel extends BaseModel {
             notes: Joi.string().allow('', null).optional(),
             inventory_count: Joi.number().integer().min(0),
             service_menu_id: Joi.string().uuid().allow(null),
+            max_per_order: Joi.number().integer().min(1),
             created_at: Joi.date(),
             updated_at: Joi.date()
         }

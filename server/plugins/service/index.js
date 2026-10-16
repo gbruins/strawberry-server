@@ -13,6 +13,18 @@ export const servicePlugin = {
         const Ctrl = new ServiceController();
 
         server.route([
+            {
+                method: 'GET',
+                path: '/services/next',
+                handler: (request, h) => Ctrl.nextHandler(request, h),
+                options: {
+                    description: 'Gets the current or next service state',
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    }
+                }
+            },
+
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/services',
                 options: {
