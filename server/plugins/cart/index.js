@@ -24,6 +24,7 @@ export const cartPlugin = {
                     description: 'Gets a list of carts',
                     auth: {
                         // App should not be able to see other carts
+                        strategies: ['adminCookie']
                     }
                 }
             }),
