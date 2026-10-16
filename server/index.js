@@ -52,11 +52,12 @@ async function init() {
     };
 
     // Only enable TLS when running in development (local certs).
-    if (!isProd) {
-        // serverOptions.tls = {
-        //     key: fs.readFileSync(path.resolve('../strawberry.local+2-key.pem')),
-        //     cert: fs.readFileSync(path.resolve('../strawberry.local+2.pem')),
-        // };
+    // Set SERVER_TLS=false to serve plain HTTP.
+    if (!isProd && process.env.SERVER_TLS !== 'false') {
+        serverOptions.tls = {
+            key: fs.readFileSync(path.resolve('../strawberry.local+2-key.pem')),
+            cert: fs.readFileSync(path.resolve('../strawberry.local+2.pem')),
+        };
     }
 
     const server = Hapi.server(serverOptions);
