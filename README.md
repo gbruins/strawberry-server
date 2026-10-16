@@ -83,3 +83,27 @@ STRIPE_AUTOMATIC_TAX=true              # optional; requires Stripe Tax to be set
 ```
 
 Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed`. Only cards are accepted, so a completed session is always paid. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.
+
+## Services (shop open windows)
+
+Store callers (Basic auth with the store API key) read the next service; admins manage services through `/service` and `/services`.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/v1/services/next` | Current or next service: `status` (`open`, `sold_out`, `upcoming`, `none`), `server_now`, `remaining`, the published menu, and `next_service` when sold out |
+| `GET /api/v1/services/next/stream` | Server-Sent Events. Sends the full state as an `update` event on connect and whenever it changes |
+
+- All timestamps are UTC ISO-8601; the UIs display them in America/Los_Angeles.
+- `remaining` is `inventory_count` minus pizzas on paid carts minus pizzas held by live checkouts. Only products whose product type slug is `pizza` count.
+- A checkout holds its pizzas until the Stripe session expires plus 60 seconds (`carts.checkout_expires_at`). Cancel, expiry and payment all release or finalize the hold.
+- `max_per_order` (minimum 1) caps pizzas per cart: `min(max_per_order, remaining)`.
+- Carts whose service has ended and that have no live hold are emptied on next access; the response includes `cart_reset: "service_ended"` once.
+
+### Stream behavior and operations
+
+- State is re-evaluated every 3 seconds and also pushed immediately on checkout cancel and completion. A `: ping` comment is sent every 25 seconds.
+- `SERVICE_STREAMS_PER_IP` (default `50`) limits concurrent streams per client IP; extra connections get `429`.
+- The per-IP limit uses the connection's remote address. Behind a reverse proxy or load balancer, configure Hapi `trustProxy`/forwarded-IP handling or every client will share the proxy's IP and hit the limit.
+- Proxies must not buffer or compress the stream. The route sends `X-Accel-Buffering: no`, `Cache-Control: no-cache` and `Content-Encoding: identity`; for nginx also set `proxy_buffering off` and a long `proxy_read_timeout`.
+- The stream hub is in-process. Running more than one server instance needs Postgres `LISTEN/NOTIFY` (or similar) so instances share change events.
+- `node --require dotenv/config scripts/checkServiceState.js` checks the state boundaries against the dev DB using temporary rows.
