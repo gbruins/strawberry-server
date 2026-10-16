@@ -16,18 +16,18 @@ export const addressDiscountPlugin = {
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/address_discounts',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 
             getGenericConfig_GET(Ctrl, {
                 path: '/address_discount',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 

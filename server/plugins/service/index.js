@@ -17,9 +17,9 @@ export const servicePlugin = {
                 path: '/services',
                 options: {
                     description: 'Gets a list of services',
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 
@@ -27,9 +27,9 @@ export const servicePlugin = {
                 path: '/service',
                 options: {
                     description: 'Gets a service by ID',
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 

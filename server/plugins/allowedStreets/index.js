@@ -16,18 +16,18 @@ export const allowedStreetsPlugin = {
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/allowed_streets',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 
             getGenericConfig_GET(Ctrl, {
                 path: '/allowed_street',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 

@@ -64,7 +64,7 @@ export const stripePlugin = {
                 options: {
                     description: 'Adds a Stripe price',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['adminCookie']
                     },
                     handler: (request, h) => {
                         return Ctrl.createStripePriceHandler(request, h);

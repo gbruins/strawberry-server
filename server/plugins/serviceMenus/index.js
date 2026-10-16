@@ -16,18 +16,18 @@ export const serviceMenuPlugin = {
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/service_menus',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 
             getGenericConfig_GET(Ctrl, {
                 path: '/service_menu',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 

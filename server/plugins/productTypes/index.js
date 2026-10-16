@@ -18,18 +18,18 @@ export const productTypesPlugin = {
             getGenericConfig_SEARCH(Ctrl, {
                 path: '/product_types',
                 options: {
-                    // auth: {
-                    //     // strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 
             getGenericConfig_GET(Ctrl, {
                 path: '/product_type',
                 options: {
-                    // auth: {
-                    //     strategies: ['apiKey', 'adminCookie']
-                    // },
+                    auth: {
+                        strategies: ['apiKey', 'adminCookie']
+                    },
                 }
             }),
 

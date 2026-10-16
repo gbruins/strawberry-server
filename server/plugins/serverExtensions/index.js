@@ -81,7 +81,8 @@ export const serverExtensionsPlugin = {
 
 
         // https://hapi.dev/tutorials/auth/?lang=en_US#default
-        // server.auth.default('adminCookie');
+        // Deny by default: routes are admin-only unless they declare their own auth
+        server.auth.default('adminCookie');
 
         // server.auth.default({
         //     strategies: ['apiKey', 'adminCookie']

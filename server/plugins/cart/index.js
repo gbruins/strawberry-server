@@ -51,7 +51,7 @@ export const cartPlugin = {
                     pre: [{ method: restrictStoreFields }],
                     ext: { onPreResponse: { method: redactCartForStore } },
                     plugins: {
-                        'hapi-rate-limit': { pathLimit: 20 }
+                        'hapi-rate-limit': { pathLimit: false, userPathLimit: 20 }
                     }
                 }
             }),

@@ -14,6 +14,9 @@ export const authPlugin = {
                 options: {
                     description: 'Logs in a user',
                     auth: false,
+                    plugins: {
+                        'hapi-rate-limit': { pathLimit: false, userPathLimit: 10 }
+                    },
                     validate: {
                         payload: Joi.object({
                             username: Joi.string().max(100),
