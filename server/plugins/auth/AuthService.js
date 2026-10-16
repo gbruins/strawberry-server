@@ -42,33 +42,23 @@ export default class AuthService extends BaseService {
 
     async apiKeyIsValid(userId, apiKey) {
         try {
-            if (!userId || !apiKey) {
+            if (!userId || !apiKey || !process.env.API_KEY_HASH) {
                 global.logger.error('AuthService:apiKeyIsValid - FAILED');
                 return false;
             }
 
-            const apiKeyHash = process.env.API_KEY_HASH;
-            const isValid = bcrypt.compareSync(apiKey, apiKeyHash);
+            const isValid = await bcrypt.compare(apiKey, process.env.API_KEY_HASH);
 
             if(!isValid) {
-                global.logger.error('AuthService:apiKeyIsValid - FAILED - basic auth password does not match hash', {
-                    meta: {
-                        apiKey: apiKey
-                    }
-                });
+                global.logger.error('AuthService:apiKeyIsValid - FAILED - basic auth password does not match hash');
                 return false;
             }
 
-            // global.logger.info('RESPONSE: AuthService:apiKeyIsValid', {
-            //     meta: {
-            //         'API key is valid for user': userId
-            //     }
-            // });
-
-            return userId;
+            return true;
         }
         catch(err) {
-            console.log(err);
+            global.logger.error(err);
+            return false;
         }
     }
 

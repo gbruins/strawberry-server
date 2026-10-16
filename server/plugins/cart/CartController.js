@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import Boom from '@hapi/boom';
 import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';
@@ -9,6 +10,24 @@ export default class CartController extends BaseController {
         super(new CartService());
         this.CartItemService = new CartItemService();
     }
+
+    async createHandler(request, h) {
+        try {
+            // The response contains the one-time cart token, so it is deliberately not logged
+            global.logger.info('REQUEST: CartController.createHandler', {
+                meta: request.payload
+            });
+
+            const cart = await this.service.createWithToken(request.payload);
+
+            return h.apiSuccess(cart);
+        }
+        catch(err) {
+            global.logger.error(err);
+            throw Boom.badRequest(err);
+        }
+    }
+
 
      /**
      * Handler for updating the admin notes of a cart

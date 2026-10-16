@@ -32,6 +32,7 @@ async function init() {
         routes: {
             cors: {
                 origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(url => url.trim()) : ['*'],
+                additionalHeaders: ['x-cart-token'],
                 credentials: true // set to true if you need cookies (session) from the browser
             },
             validate: {

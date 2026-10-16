@@ -11,7 +11,7 @@ export default class AuthController extends BaseController {
     loginHandler(request, h) {
         global.logger.info('REQUEST: AuthController.loginHandler', {
             meta: {
-                payload: request.payload
+                username: request.payload?.username
             }
         });
 

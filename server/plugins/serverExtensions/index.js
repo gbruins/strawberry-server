@@ -13,21 +13,12 @@ export const serverExtensionsPlugin = {
         // Basic auth for store API usage
         server.auth.strategy('apiKey', 'basic', {
             validate: async (request, userId, api_key) => {
-                try {
-                    const tenantData = await AuthSvc.apiKeyIsValid(userId, api_key);
+                const isValid = await AuthSvc.apiKeyIsValid(userId, api_key);
 
-                    // console.log('tenantData:', tenantData);
-
-                    return {
-                        isValid: tenantData ? true : false,
-                        credentials: {
-                            userId: tenantData.id
-                        }
-                    }
-                }
-                catch(err) {
-                    console.error(err);
-                }
+                return {
+                    isValid,
+                    credentials: isValid ? { userId } : {}
+                };
             }
         });
 

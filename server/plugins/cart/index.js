@@ -8,6 +8,7 @@ import {
     getGenericConfig_PUT,
     getGenericConfig_DELETE
  } from '../../utils/routeUtils.js';
+import { requireCartAccess, restrictStoreFields, redactCartForStore, getCartIdForItem } from './cartAccess.js';
 
 export const cartPlugin = {
     name: 'cartPlugin',
@@ -33,7 +34,9 @@ export const cartPlugin = {
                     description: 'Gets a cart by ID',
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
-                    }
+                    },
+                    pre: [{ method: requireCartAccess((request) => request.query.id) }],
+                    ext: { onPreResponse: { method: redactCartForStore } }
                 }
             }),
 
@@ -43,6 +46,11 @@ export const cartPlugin = {
                     description: 'Adds a new cart',
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
+                    },
+                    pre: [{ method: restrictStoreFields }],
+                    ext: { onPreResponse: { method: redactCartForStore } },
+                    plugins: {
+                        'hapi-rate-limit': { pathLimit: 20 }
                     }
                 }
             }),
@@ -53,7 +61,12 @@ export const cartPlugin = {
                     description: 'Updates a cart',
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
-                    }
+                    },
+                    pre: [
+                        { method: requireCartAccess((request) => request.payload.id, { mutates: true }) },
+                        { method: restrictStoreFields }
+                    ],
+                    ext: { onPreResponse: { method: redactCartForStore } }
                 }
             }),
 
@@ -63,7 +76,7 @@ export const cartPlugin = {
                     description: 'Deletes a cart',
                     auth: {
                         // App should not be able to delete carts
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminCookie']
                     }
                 }
             }),
@@ -97,6 +110,7 @@ export const cartPlugin = {
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
+                    pre: [{ method: requireCartAccess((request) => request.payload.cart_id, { mutates: true }) }],
                     validate: {
                         payload: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForAdd()
@@ -115,6 +129,7 @@ export const cartPlugin = {
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.payload.id), { mutates: true }) }],
                     validate: {
                         payload: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForUpdate()
@@ -133,6 +148,7 @@ export const cartPlugin = {
                     auth: {
                         strategies: ['adminCookie', 'apiKey']
                     },
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.query.id), { mutates: true }) }],
                     validate: {
                         query: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForId()
