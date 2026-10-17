@@ -86,7 +86,7 @@ try {
 
     // List counts and usage
     const [svc] = await db('service').insert({
-        start_at: new Date(Date.now() - 3600e3), end_at: new Date(Date.now() + 3600e3),
+        start_at: new Date(Date.now() - 365 * 86400e3), end_at: new Date(Date.now() + 3600e3),
         notes: `${TAG}-svc`, inventory_count: 5, max_per_order: 4, service_menu_id: menu.id
     }).returning('*');
     r = await call('GET', `/service_menus?title=${TAG}-menu`, ADMIN);
@@ -95,6 +95,35 @@ try {
     r = await call('GET', `/service_menu/usage?id=${menu.id}`, ADMIN);
     check('usage names the service', r.data?.services?.[0]?.id === svc.id);
 
+    // A menu change reaches open stream clients on the next tick (the stream's tick is 3 s)
+    const ac = new AbortController();
+    const res = await fetch(`${BASE}/services/next/stream`, { headers: STOREH, signal: ac.signal });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = '';
+    const nextState = async (timeoutMs) => {
+        const deadline = Date.now() + timeoutMs;
+        while(Date.now() < deadline) {
+            const m = buffered.match(/event: state\ndata: (.*)\n\n/);
+            if(m) {
+                buffered = buffered.slice(buffered.indexOf(m[0]) + m[0].length);
+                return JSON.parse(m[1]);
+            }
+            const chunk = await Promise.race([reader.read(), new Promise((resolve) => setTimeout(() => resolve(null), deadline - Date.now()))]);
+            if(!chunk) break;
+            if(chunk.value) buffered += decoder.decode(chunk.value);
+        }
+        return null;
+    };
+    const first = await nextState(3000);
+    check('stream sends the initial state', first?.menu?.id === menu.id);
+    await call('PUT', `/service_menu/products?id=${menu.id}`, ADMIN, { product_ids: [pb.id, pc.id, pa.id] });
+    const sentAt = Date.now();
+    const pushed = await nextState(4000);
+    check('menu change is pushed within 4 s', pushed?.menu?.products.map((p) => p.id).join() === [pb.id, pc.id, pa.id].join());
+    console.log(`  push took ${Date.now() - sentAt} ms`);
+    ac.abort();
+    await call('PUT', `/service_menu/products?id=${menu.id}`, ADMIN, { product_ids: [pa.id, pc.id, pb.id] });
     // Store key filtering
     r = await call('GET', `/service_menu?id=${draftId}`, STOREH);
     check('store: draft menu is 404', r.status === 404);
