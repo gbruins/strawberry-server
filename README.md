@@ -107,3 +107,17 @@ Store callers (Basic auth with the store API key) read the next service; admins 
 - Proxies must not buffer or compress the stream. The route sends `X-Accel-Buffering: no`, `Cache-Control: no-cache` and `Content-Encoding: identity`; for nginx also set `proxy_buffering off` and a long `proxy_read_timeout`.
 - The stream hub is in-process. Running more than one server instance needs Postgres `LISTEN/NOTIFY` (or similar) so instances share change events.
 - `node --require dotenv/config scripts/checkServiceState.js` checks the state boundaries against the dev DB using temporary rows.
+
+## Service menus
+
+A service uses one menu, which is an ordered list of products.
+
+- `GET /service_menus` and `GET /service_menu?id=` accept the store key but only return published menus. Drafts are admin only.
+- `GET /service_menu/products?id=` lists a menu's products in display order. Store callers only get published products.
+- `PUT /service_menu/products?id=` (admin) replaces a menu's products and order with `{ "product_ids": [...] }`. The array order is the display order.
+- `GET /service_menu/usage?id=` (admin) lists open or upcoming services that use the menu. The list endpoint also returns `product_count` and `services` for each menu.
+- Deleting a menu is never blocked. Services that used it show no menu.
+- Checkout refuses a cart item that is not on the service's current published menu.
+- Order is stored in `service_menu_products.ordinal`. Products without one sort last, by title.
+
+Verify with `node --require dotenv/config scripts/checkMenus.js` against a throwaway server on port 10077 (`CORS_ORIGINS` and `SESSION_COOKIE_SECURE=false` are not needed for the script).
