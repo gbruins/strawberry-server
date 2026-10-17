@@ -3,13 +3,45 @@ import Boom from '@hapi/boom';
 import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';
-import { createCheckoutForCart, cancelCheckout } from './CheckoutService.js';
+import { createCheckoutForCart, cancelCheckout, isCheckoutInProgress } from './CheckoutService.js';
 
 export default class CartController extends BaseController {
 
     constructor() {
         super(new CartService());
         this.CartItemService = new CartItemService();
+    }
+
+    async getByIdHandler(request, h) {
+        try {
+            const cart = await this.service.fetchOne({ where: { id: request.query.id } });
+
+            if(cart) {
+                cart.checkout_in_progress = await this.isLocked(cart);
+            }
+
+            return h.apiSuccess(cart);
+        }
+        catch(err) {
+            global.logger.error(err);
+            throw Boom.badRequest(err);
+        }
+    }
+
+    // True while the cart's Stripe session is live. The stock hold outlasts the session,
+    // so checkout_expires_at alone would report a lock that edits no longer see.
+    async isLocked(cart) {
+        if(cart.closed_at || !cart.stripe_order_id) {
+            return false;
+        }
+
+        try {
+            return await isCheckoutInProgress(cart.id, cart.stripe_order_id);
+        }
+        catch(err) {
+            global.logger.error(err);
+            return !!cart.checkout_expires_at && new Date(cart.checkout_expires_at) > new Date();
+        }
     }
 
     async createHandler(request, h) {
@@ -46,6 +78,27 @@ export default class CartController extends BaseController {
         };
 
         return super.updateHandler(req, h);
+    }
+
+    async updateCustomerNoteHandler(request, h) {
+        try {
+            const note = (request.payload.customer_note || '').trim();
+
+            await this.service.update({
+                data: { id: request.payload.id, customer_note: note || null },
+                where: { id: request.payload.id }
+            });
+
+            return this.getByIdHandler({ ...request, query: { id: request.payload.id } }, h);
+        }
+        catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
+            global.logger.error(err);
+            throw Boom.badRequest(err.message);
+        }
     }
 
     async checkoutHandler(request, h) {

@@ -176,6 +176,31 @@ export default class CartItemService extends BaseService {
             'cart_items'
         );
 
+        // Show current prices and titles so the cart total matches what checkout charges.
+        // A product that is gone keeps its stored snapshot; checkout refuses it.
+        const productIds = [...new Set(
+            makeArray(carts).flatMap((cart) => makeArray(cart.cart_items).map((item) => item.product?.id))
+        )].filter(Boolean);
+
+        if(productIds.length) {
+            const current = await db('products')
+                .select('id', 'title', 'base_price')
+                .whereIn('id', productIds)
+                .where('published', true)
+                .whereNull('deleted_at');
+            const byId = new Map(current.map((row) => [row.id, row]));
+
+            makeArray(carts).forEach((cart) => {
+                makeArray(cart.cart_items).forEach((item) => {
+                    const row = byId.get(item.product?.id);
+
+                    if(row) {
+                        item.product = { ...item.product, title: row.title, base_price: row.base_price };
+                    }
+                });
+            });
+        }
+
         makeArray(carts).forEach((cart) => {
             this.addVirtuals(cart.cart_items);
         });

@@ -61,7 +61,7 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
             }
 
             if(inProgress) {
-                throw Boom.conflict('Checkout in progress');
+                throw Boom.conflict('Checkout in progress', { code: 'checkout_in_progress' });
             }
         }
 

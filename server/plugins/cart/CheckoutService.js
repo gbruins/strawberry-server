@@ -155,7 +155,40 @@ function getStorefrontUrl() {
  *
  * @returns {Promise<{ url: string }>}
  */
-export async function createCheckoutForCart(cartId) {
+const checkoutLocks = new Map();
+
+// Serializes checkout creation per cart so two simultaneous requests cannot both create a
+// payable session. In-process, like the service stream; multi-instance needs a database lock.
+async function withCartLock(cartId, fn) {
+    const previous = checkoutLocks.get(cartId) || Promise.resolve();
+    const current = previous.catch(() => {}).then(fn);
+    const tail = current.catch(() => {});
+
+    checkoutLocks.set(cartId, tail);
+
+    try {
+        return await current;
+    }
+    finally {
+        if(checkoutLocks.get(cartId) === tail) {
+            checkoutLocks.delete(cartId);
+        }
+    }
+}
+
+const itemUnavailable = (productId, title) => {
+    return Boom.conflict(`"${title || 'An item'}" is no longer available`, {
+        code: 'item_unavailable',
+        product_id: productId || null,
+        title: title || null
+    });
+};
+
+export function createCheckoutForCart(cartId) {
+    return withCartLock(cartId, () => createCheckout(cartId));
+}
+
+async function createCheckout(cartId) {
     const cart = await CartSvc.fetchOne({ where: { id: cartId } });
 
     if(!cart || cart.closed_at) {
@@ -186,11 +219,11 @@ export async function createCheckoutForCart(cartId) {
         const product = await ProductSvc.fetchOne({ where: { id: item.product?.id } });
 
         if(!product || !product.published) {
-            throw new Error(`"${item.product?.title || 'An item'}" is no longer available`);
+            throw itemUnavailable(item.product?.id, item.product?.title);
         }
 
         if(offeredIds && !offeredIds.has(product.id)) {
-            throw new Error(`"${product.title}" is no longer available`);
+            throw itemUnavailable(product.id, product.title);
         }
 
         if(product.stripe_price_id) {
@@ -220,6 +253,11 @@ export async function createCheckoutForCart(cartId) {
 
         if(previous.status === 'complete') {
             throw new Error('A payment for this cart is already being processed');
+        }
+
+        // Pay pressed twice, or Continue to payment: hand back the same page
+        if(previous.status === 'open' && previous.url) {
+            return { url: previous.url };
         }
 
         if(previous.status === 'open') {

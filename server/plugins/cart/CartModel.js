@@ -42,6 +42,10 @@ export default class CartModel extends BaseModel {
                 Joi.array(),
                 Joi.allow(null)
             ),
+            customer_note: Joi.alternatives().try(
+                Joi.string().trim().max(500).allow(''),
+                Joi.allow(null)
+            ),
             created_at: Joi.date(),
             updated_at: Joi.date(),
             deleted_at: Joi.date(),

@@ -127,6 +127,28 @@ export const cartPlugin = {
 
             {
                 method: 'PUT',
+                path: '/cart/customer_note',
+                options: {
+                    description: 'Updates the note the customer leaves for the kitchen',
+                    auth: {
+                        strategies: ['adminCookie', 'apiKey']
+                    },
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
+                    ext: { onPreResponse: { method: redactCartForStore } },
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.getIdSchema(),
+                            customer_note: Joi.string().trim().max(500).allow('', null).required()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.updateCustomerNoteHandler(request, h);
+                    }
+                }
+            },
+
+            {
+                method: 'PUT',
                 path: '/cart/notes',
                 options: {
                     description: 'Updates the admin notes for a cart',
