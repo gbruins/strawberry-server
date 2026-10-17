@@ -112,7 +112,7 @@ Store callers (Basic auth with the store API key) read the next service; admins 
 
 - State is re-evaluated every 3 seconds and also pushed immediately on checkout cancel and completion. A `: ping` comment is sent every 25 seconds.
 - `SERVICE_STREAMS_PER_IP` (default `50`) limits concurrent streams per client IP; extra connections get `429`.
-- The per-IP limit uses the connection's remote address. Behind a reverse proxy or load balancer, configure Hapi `trustProxy`/forwarded-IP handling or every client will share the proxy's IP and hit the limit.
+- The per-IP stream cap and the API rate limiter both key on the client IP. Behind a proxy, set `TRUSTED_PROXY_HOPS` to the number of proxies in front of the app (default `0` = use the connection address). The Nth entry from the right of `X-Forwarded-For` is used, so spoofed left-hand entries are ignored. Without it every shopper shares the proxy's IP and budget.
 - Proxies must not buffer or compress the stream. The route sends `X-Accel-Buffering: no`, `Cache-Control: no-cache` and `Content-Encoding: identity`; for nginx also set `proxy_buffering off` and a long `proxy_read_timeout`.
 - The stream hub is in-process. Running more than one server instance needs Postgres `LISTEN/NOTIFY` (or similar) so instances share change events.
 - `node --require dotenv/config scripts/checkServiceState.js` checks the state boundaries against the dev DB using temporary rows.

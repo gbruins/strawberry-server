@@ -19,6 +19,7 @@ import { productTypesPlugin } from './plugins/productTypes/index.js';
 import { servicePlugin } from './plugins/service/index.js';
 import { serviceMenuPlugin } from './plugins/serviceMenus/index.js';
 import { stripePlugin } from './plugins/stripe/index.js';
+import { pickClientIp, trustedProxyHops } from './utils/clientIp.js';
 
 dotenv.config();
 
@@ -73,6 +74,9 @@ async function init() {
         options: {
             enabled: true,
             userLimit: 300,
+            // Behind a proxy the limiter must see the caller's address, not the proxy's
+            trustProxy: trustedProxyHops() > 0,
+            getIpFromProxyHeader: (header) => pickClientIp(header, undefined),
             // A per-path cap counts all callers together, so it would throttle legitimate
             // shoppers; sensitive routes set a per-caller userPathLimit instead.
             pathLimit: false

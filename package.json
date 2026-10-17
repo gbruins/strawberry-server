@@ -5,6 +5,7 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
+        "start": "node server/index.js",
         "dev": "cross-env node --require dotenv/config ./node_modules/nodemon/bin/nodemon server/index.js --watch server",
         "knex:migrate": "node --require dotenv/config ./node_modules/knex/bin/cli.js migrate:latest --knexfile ./server/knexfile.js",
         "knex:seed": "node --require dotenv/config ./node_modules/knex/bin/cli.js seed:run --knexfile ./server/knexfile.js",

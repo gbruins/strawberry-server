@@ -3,6 +3,7 @@ import ServiceService from './ServiceService.js';
 import Boom from '@hapi/boom';
 import { buildState } from './ServiceState.js';
 import ServiceStream from './ServiceStream.js';
+import { getClientIp } from '../../utils/clientIp.js';
 
 export default class ServiceController extends BaseController {
 
@@ -18,7 +19,7 @@ export default class ServiceController extends BaseController {
 
 
     async streamHandler(request, h) {
-        const ip = request.info.remoteAddress;
+        const ip = getClientIp(request);
         const stream = await ServiceStream.subscribe(ip);
 
         if(!stream) {
