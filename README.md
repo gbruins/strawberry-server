@@ -84,6 +84,15 @@ STRIPE_AUTOMATIC_TAX=true              # optional; requires Stripe Tax to be set
 
 Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed`. Only cards are accepted, so a completed session is always paid. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.
 
+## Cart
+
+- `GET /api/v1/cart` returns the cart with current product titles and prices, `customer_note`, and `checkout_in_progress` (read from the live Stripe session).
+- `PUT /api/v1/cart/customer_note` saves the customer's note (max 500 characters).
+- While a Stripe session is open the cart is locked: item edits and note changes get a 409 with `code: 'checkout_in_progress'`. Calling `POST /cart/checkout` again reuses the open session and returns its URL; cancelling releases the lock.
+- `POST /cart/checkout` refusals are 409 with `data.code` of `item_unavailable` (with `product_id` and `title`), `over_limit`, `sold_out` or `no_open_service`.
+- Checkout creation is serialised per cart in-process only; a multi-instance deployment needs a database lock.
+- Live checks: `node --require dotenv/config scripts/checkCart.js` (needs a running server and Stripe test keys).
+
 ## Services (shop open windows)
 
 Store callers (Basic auth with the store API key) read the next service; admins manage services through `/service` and `/services`.
