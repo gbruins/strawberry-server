@@ -34,6 +34,7 @@ async function fetchPublishedMenu(menuId, knex = db) {
         .where('smp.service_menu_id', menu.id)
         .where('p.published', true)
         .whereNull('p.deleted_at')
+        .orderByRaw('smp.ordinal ASC NULLS LAST')
         .orderBy('p.title')
         .select('p.id', 'p.title', 'p.description', 'p.base_price');
 

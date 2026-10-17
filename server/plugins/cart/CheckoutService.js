@@ -167,6 +167,19 @@ export async function createCheckoutForCart(cartId) {
         throw new Error('Cart is empty');
     }
 
+    // Product ids offered by the service's current published menu (FR-008a)
+    let offeredIds = null;
+    if(cart.service_id) {
+        const offered = await db('service as s')
+            .join('service_menus as m', 'm.id', 's.service_menu_id')
+            .join('service_menu_products as smp', 'smp.service_menu_id', 'm.id')
+            .where('s.id', cart.service_id)
+            .where('m.published', true)
+            .whereNull('m.deleted_at')
+            .select('smp.product_id');
+        offeredIds = new Set(offered.map((row) => row.product_id));
+    }
+
     const lineItems = [];
 
     for(const item of cartItems) {
@@ -174,6 +187,10 @@ export async function createCheckoutForCart(cartId) {
 
         if(!product || !product.published) {
             throw new Error(`"${item.product?.title || 'An item'}" is no longer available`);
+        }
+
+        if(offeredIds && !offeredIds.has(product.id)) {
+            throw new Error(`"${product.title}" is no longer available`);
         }
 
         if(product.stripe_price_id) {

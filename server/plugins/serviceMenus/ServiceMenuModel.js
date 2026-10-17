@@ -13,7 +13,7 @@ export default class ServiceMenuModel extends BaseModel {
         this.schema = {
             id: Joi.string().uuid(),
             title: Joi.string().max(255),
-            description: Joi.string().allow(null),
+            description: Joi.string().max(2000).allow(null, ''),
             published: Joi.boolean(),
             created_at: Joi.date(),
             updated_at: Joi.date(),
