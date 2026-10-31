@@ -28,6 +28,7 @@
         "@supabase/supabase-js": "2.118.0",
         "accounting": "0.4.1",
         "bcryptjs": "3.0.3",
+        "date-fns-tz": "3.2.0",
         "dotenv": "17.2.3",
         "hapi-rate-limit": "8.0.0",
         "joi": "18.0.1",
@@ -40,6 +41,7 @@
         "lodash.isstring": "4.0.1",
         "lodash.merge": "4.6.2",
         "pg": "8.16.3",
+        "postmark": "5.1.0",
         "qs": "6.14.0",
         "stripe": "19.1.0",
         "winston": "3.18.3"

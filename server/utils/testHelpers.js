@@ -49,6 +49,8 @@ export async function createTestTenant({ name, product, withApiKey = false } = {
         await ownerDb('cart_items').where({ tenant_id: tenant.id }).del();
         await ownerDb('carts').where({ tenant_id: tenant.id }).del();
         await ownerDb('products').where({ tenant_id: tenant.id }).del();
+        await ownerDb('notification_sends').where({ tenant_id: tenant.id }).del();
+        await ownerDb('email_subscribers').where({ tenant_id: tenant.id }).del();
 
         if (withApiKey) {
             await ownerDb('tenant_api_keys').where({ tenant_id: tenant.id }).del();

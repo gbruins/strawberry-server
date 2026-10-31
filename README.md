@@ -138,6 +138,31 @@ A service uses one menu, which is an ordered list of products.
 
 Verify with `node --require dotenv/config scripts/checkMenus.js` against a throwaway server on port 10077 (`CORS_ORIGINS` and `SESSION_COOKIE_SECURE=false` are not needed for the script).
 
+## Email alerts (specs/005-email-open-alerts)
+
+Visitors can leave their email on the storefront to be notified when the shop is next open. Sending
+is always a deliberate, staff-only action — creating or editing a service window never emails
+anyone on its own.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/v1/subscribers` | Store callers (Basic auth with the store API key). Subscribes an email; re-subscribing an already-unsubscribed address reactivates the same row (same `unsubscribe_token`), not a new one. |
+| `GET /api/v1/subscribers` / `GET /api/v1/subscribers/count` | Admin. Lists/counts the caller tenant's subscribers. |
+| `DELETE /api/v1/subscriber?id=` | Admin. Unsubscribes (not a hard delete — same state as self-service unsubscribe). |
+| `GET /api/v1/subscribers/unsubscribe?token=` | Public, no auth at all. Always returns the same generic success response, even for an unknown or malformed token, so the link can never be used to probe which addresses are subscribed. |
+| `POST /api/v1/services/notify?id=` | Admin. Staff's explicit "Notify subscribers" action for a specific service window — sends to every currently-subscribed address and records a `notification_sends` audit row. |
+
+**Postmark setup**: emails go out through Postmark's **Broadcast** message stream, not the
+transactional one — this is a one-to-many send to an opt-in list, and Postmark separates the two
+for deliverability/reputation reasons. In the Postmark dashboard, create a Broadcast stream (its ID
+is literally `broadcast`) on the server you're using, then set `POSTMARK_API_KEY` to that server's
+token and `EMAIL_INFO` to the verified sender address, both in `.env`. Until that stream exists,
+`POST /services/notify` will fail (`502`) for every send attempt.
+
+For real (non-mocked) test coverage without a live account or without actually delivering mail,
+use Postmark's own sandbox token, `POSTMARK_API_TEST` — Postmark accepts and processes the request
+normally but never delivers it. The notification test suite uses this automatically.
+
 ## Multi-tenancy (specs/004-multi-tenant-supabase)
 
 This is a shared-schema, multi-tenant app: one Postgres database (Supabase), every tenant-scoped
