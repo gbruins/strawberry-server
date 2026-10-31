@@ -1,7 +1,8 @@
 import { tableName } from './ProductTypeModel.js';
 
-function seed(knex) {
+function seed(knex, tenantId) {
     return knex(tableName)
+        .where({ tenant_id: tenantId })
         .del()
         // .then(() => {
         //     return knex.raw(`ALTER SEQUENCE ${tableName}_id_seq RESTART WITH 1`);
@@ -31,7 +32,8 @@ function seed(knex) {
                                 metadata: JSON.stringify([
                                     obj.metadata || {"property":"sample","value":"meta data"}
                                 ]),
-                                ordinal: index + 1
+                                ordinal: index + 1,
+                                tenant_id: tenantId
                             })
                         )
                     })

@@ -118,7 +118,8 @@ export default class BaseController {
 
             const response = await this.service.upsertOne({
                 data: request.payload,
-                trx: request.app.trx
+                trx: request.app.trx,
+                tenantId: request.app.tenantId
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.upsertHandler`, {

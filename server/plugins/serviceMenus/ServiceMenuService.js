@@ -59,6 +59,7 @@ export default class ServiceMenuService extends BaseService {
         if(ids.length) {
             await trx('service_menu_products').insert(
                 ids.map((product_id, i) => ({
+                    tenant_id: tenantId,
                     service_menu_id: menuId,
                     product_id,
                     ordinal: i + 1

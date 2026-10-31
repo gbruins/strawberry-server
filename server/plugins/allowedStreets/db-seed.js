@@ -3,10 +3,16 @@ import { tableName as allowedStreetsTable } from './AllowedStreetModel.js';
 /**
  * Seed data for allowed_streets table
  * @param { import('knex').Knex } knex
+ * @param { string } tenantId — rows are tenant-scoped (migration 96); this seed only touches
+ *   this tenant's own rows, never every tenant's
  */
-async function seed(knex) {
-    await knex(allowedStreetsTable).del();
-    await knex(allowedStreetsTable).insert([
+async function seed(knex, tenantId) {
+    await knex(allowedStreetsTable).where({ tenant_id: tenantId }).del();
+    await knex(allowedStreetsTable).insert(STREETS.map((street) => ({ ...street, tenant_id: tenantId })));
+}
+
+const STREETS = [
+
         { street_name: 'Badger Court', active: false },
         { street_name: 'Bald Eagle Loop', active: false },
         { street_name: 'Blue Teal Loop', active: false },
@@ -88,8 +94,7 @@ async function seed(knex) {
         { street_name: 'Wildwood Court', active: false },
         { street_name: 'Woodchuck Court', active: false },
         { street_name: 'Woodland Loop', active: false },
-    ]);
-}
+];
 
 export default {
     seed

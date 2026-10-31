@@ -1,7 +1,8 @@
 import { tableName } from './ProductModel.js';
 
-async function seed(knex) {
+async function seed(knex, tenantId) {
     return knex(tableName)
+        .where({ tenant_id: tenantId })
         .del()
         // .then(() => {
         //     return knex.raw(`ALTER SEQUENCE ${tables.product_artists}_id_seq RESTART WITH 1`);
@@ -31,7 +32,8 @@ async function seed(knex) {
                         base_price: 1500,
                         product_type: 1,
                         stripe_tax_code: 'txcd_40060003',
-                        ...obj
+                        ...obj,
+                        tenant_id: tenantId
                     })
                 );
             });

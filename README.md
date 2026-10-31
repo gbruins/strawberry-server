@@ -179,6 +179,12 @@ SUPABASE_SERVICE_ROLE_KEY=<service_role secret, Project Settings → API> \
   npm run onboard-tenant -- "Tenant's Business Name" "America/New_York" owner@example.com
 ```
 
+Make sure `ADMIN_URL` in `.env` is set to wherever `strawberry-admin` is actually reachable
+(locally, that's `https://strawberry.local:5173` per the mkcert setup above, not
+`http://localhost:5173`) before running this — it's where the invite email's link sends the new
+owner to set their password, and it's baked into that email at send time, so an unset/wrong value
+can't be fixed after the fact without re-inviting.
+
 This does four things in one go:
 1. Creates the tenant's row in `tenants` (name + IANA timezone — displayed in that zone in the
    admin and storefront UIs; everything is stored in UTC).
