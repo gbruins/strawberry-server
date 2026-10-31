@@ -14,7 +14,7 @@ export const stripePlugin = {
                 options: {
                     description: 'Gets a list of Stripe tax codes',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     handler: (request, h) => {
                         return Ctrl.getStripeTaxCodesHandler(request, h);
@@ -27,7 +27,7 @@ export const stripePlugin = {
                 options: {
                     description: 'Gets a single Stripe tax code by ID',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     validate: {
                         query: Joi.object({
@@ -45,7 +45,7 @@ export const stripePlugin = {
                 options: {
                     description: 'Gets a list of Stripe prices',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     validate: {
                         query: Joi.object({
@@ -83,7 +83,7 @@ export const stripePlugin = {
                 options: {
                     description: 'Adds a Stripe price',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                     handler: (request, h) => {
                         return Ctrl.createStripePriceHandler(request, h);

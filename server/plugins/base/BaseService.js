@@ -43,7 +43,8 @@ export default class BaseService {
         });
 
         try {
-            const qb = db
+            const dbOrTrx = config.trx || db;
+            const qb = dbOrTrx
                 .select(config.columns || this.model.getAllColumns())
                 .from(this.model.tableName);
 
@@ -77,7 +78,8 @@ export default class BaseService {
                 // Unpaginated results return an array
                 // Paginated results return an object with 'data' and 'pagination' props
                 await this.addRelations(
-                    Array.isArray(results) ? results : (results?.data || [])
+                    Array.isArray(results) ? results : (results?.data || []),
+                    config.trx
                 );
             }
 
@@ -109,7 +111,8 @@ export default class BaseService {
         });
 
         try {
-            const qb = db
+            const dbOrTrx = config.trx || db;
+            const qb = dbOrTrx
                 .select(config.columns || this.model.getAllColumns())
                 .from(this.model.tableName);
 
@@ -124,7 +127,7 @@ export default class BaseService {
             const results = await qb.first();
 
             if(config.fetchRelations !== false) {
-                await this.addRelations(results);
+                await this.addRelations(results, config.trx);
             }
 
             this.addVirtuals(results);
@@ -156,19 +159,30 @@ export default class BaseService {
         });
 
         try {
+            const dbOrTrx = config.trx || db;
             const payload = config?.data ? this.prepareForUpsert(config.data) : {};
             delete payload.id;
+
+            // tenant_id is never present in any model's Joi schema (so a client payload can
+            // never set it — Joi rejects unknown fields), and is always set here from the
+            // caller's own resolved tenant context, never trusted from config.data. Every
+            // table BaseService.create() is used for is one of the 9 tenant-scoped tables
+            // (data-model.md); admin_users/tenants/tenant_api_keys are written via scripts
+            // using raw queries, not this generic path.
+            if(config.tenantId) {
+                payload.tenant_id = config.tenantId;
+            }
 
             // awaiting the reponse will cause errors to be caught
             // in the catch block.  Otherwise the errors will be returned,
             // which may lead DB query info
-            const results = await db
+            const results = await dbOrTrx
                 .returning(config.columns || this.model.getAllColumns())
                 .insert(payload)
                 .into(this.model.tableName);
 
             if(results && config.fetchRelations !== false) {
-                await this.addRelations(results);
+                await this.addRelations(results, config.trx);
             }
 
             this.addVirtuals(results);
@@ -200,11 +214,12 @@ export default class BaseService {
         });
 
         try {
+            const dbOrTrx = config.trx || db;
             const payload = this.prepareForUpsert(config.data);
             delete payload.id;
-            payload.updated_at = db.fn.now();
+            payload.updated_at = dbOrTrx.fn.now();
 
-            const qb = db(this.model.tableName)
+            const qb = dbOrTrx(this.model.tableName)
                 .returning(config.columns || this.model.getAllColumns())
                 .where(config.where);
 
@@ -216,7 +231,7 @@ export default class BaseService {
             const results = await qb.update(payload);
 
             if(results && config.fetchRelations !== false) {
-                await this.addRelations(results);
+                await this.addRelations(results, config.trx);
             }
 
             this.addVirtuals(results);
@@ -279,16 +294,19 @@ export default class BaseService {
                     .where(config.where);
 
                 const dbResponse = this.model.isSoftDelete()
-                    ? await qb.whereNull('deleted_at').update({ deleted_at: db.fn.now() })
+                    ? await qb.whereNull('deleted_at').update({ deleted_at: trx.fn.now() })
                     : await qb.del();
 
                 return dbResponse?.[0] || {};
             }
 
-            // If the given knex object is already a transaction then use it,
-            // otherwise create a new transaction
-            if(db.isTransaction) {
-                return runDelete();
+            // Prefer the request's own tenant-scoped transaction (config.trx, set by the
+            // onPreHandler extension in serverExtensions/index.js) so deleteRelations() and the
+            // delete itself run under the same SET LOCAL app.current_tenant_id as everything
+            // else in the request. Only open a standalone transaction when no request-scoped
+            // one was provided (e.g. scripts/seeds calling the service directly).
+            if(config.trx) {
+                return runDelete(config.trx);
             }
             else {
                 return db.transaction((trx) => {
@@ -312,17 +330,23 @@ export default class BaseService {
 
 
     /*
-    * This method is meant to be extended
+    * This method is meant to be extended. Subclasses that query related tenant-scoped
+    * tables MUST build their query off `trx` (not the bare `db` import) so the relation
+    * fetch runs under the same SET LOCAL app.current_tenant_id as the rest of the request —
+    * otherwise RLS has no tenant context and the query will just return zero rows
+    * (research.md #3: this fails closed, not open, but it will look like missing data).
     */
-    addRelations(results) {
+    addRelations(results, trx) {
         return results;
     }
 
 
     /*
-    * This method is meant to be extended
+    * This method is meant to be extended. Called as deleteRelations(trx, id) — see del()
+    * above. Subclasses must use `trx` for any queries, for the same reason noted on
+    * addRelations().
     */
-    deleteRelations(id) {
+    deleteRelations(trx, id) {
         return;
     }
 

@@ -20,24 +20,24 @@ const CHECKOUT_SESSION_ID_PREFIX = 'cs_';
 
 const isSessionId = (value) => typeof value === 'string' && value.startsWith(CHECKOUT_SESSION_ID_PREFIX);
 
-const clearSession = (cartId, sessionId) => {
-    return db('carts')
+const clearSession = (cartId, sessionId, trx = db) => {
+    return trx('carts')
         .where({ id: cartId, stripe_order_id: sessionId })
         .whereNull('closed_at')
-        .update({ stripe_order_id: null, checkout_expires_at: null, updated_at: db.fn.now() });
+        .update({ stripe_order_id: null, checkout_expires_at: null, updated_at: trx.fn.now() });
 };
 
 
 /**
  * Releases a checkout hold, returning its pizzas to the pool.
  */
-export async function releaseCheckoutHold(cartId) {
-    await db('carts')
+export async function releaseCheckoutHold(cartId, trx = db, tenantId) {
+    await trx('carts')
         .where({ id: cartId })
         .whereNull('closed_at')
-        .update({ checkout_expires_at: null, updated_at: db.fn.now() });
+        .update({ checkout_expires_at: null, updated_at: trx.fn.now() });
 
-    ServiceStream.publish();
+    ServiceStream.publish(tenantId);
 }
 
 
@@ -46,10 +46,19 @@ export async function releaseCheckoutHold(cartId) {
  * the cart's pizzas, all while the service row is locked so that two checkouts can
  * never take the last pizza. The hold is provisional until the Stripe session exists.
  *
+ * Deliberately opens its OWN short transaction (scoped to `tenantId`) rather than using the
+ * caller's ambient request transaction: `createCheckout` calls this, then makes a slow Stripe
+ * API call afterward — if the FOR UPDATE lock on the service row were held on the same
+ * transaction as that Stripe call, two concurrent checkouts for a near-sold-out service would
+ * serialize through the entire Stripe round-trip instead of just this quick DB check. Committing
+ * here releases the lock immediately, same as the original design before tenant-scoping existed.
+ *
  * @throws a 409 Boom with a code: service_closed, sold_out or over_limit
  */
-export async function reserveCheckoutStock(cartId, { now = new Date() } = {}) {
+export async function reserveCheckoutStock(cartId, { now = new Date() } = {}, tenantId) {
     await db.transaction(async (trx) => {
+        await trx.raw('SELECT set_config(?, ?, true)', ['app.current_tenant_id', tenantId]);
+
         const cart = await trx('carts').where({ id: cartId }).whereNull('deleted_at').first('id', 'service_id');
 
         const service = cart?.service_id
@@ -89,7 +98,7 @@ export async function reserveCheckoutStock(cartId, { now = new Date() } = {}) {
  * against edits while this is true, so what is paid always matches the cart.
  * Expired sessions are released.
  */
-export async function isCheckoutInProgress(cartId, sessionId) {
+export async function isCheckoutInProgress(cartId, sessionId, trx = db) {
     if(!isSessionId(sessionId)) {
         return false;
     }
@@ -97,7 +106,7 @@ export async function isCheckoutInProgress(cartId, sessionId) {
     const session = await StripeService.retrieveCheckoutSession(sessionId);
 
     if(session.status === 'expired') {
-        await clearSession(cartId, sessionId);
+        await clearSession(cartId, sessionId, trx);
         return false;
     }
 
@@ -110,12 +119,12 @@ export async function isCheckoutInProgress(cartId, sessionId) {
  *
  * @returns {Promise<{ status: 'cancelled' | 'none' | 'complete' }>}
  */
-export async function cancelCheckout(cartId) {
-    const cart = await db('carts').where({ id: cartId }).whereNull('deleted_at').first('stripe_order_id');
+export async function cancelCheckout(cartId, trx = db) {
+    const cart = await trx('carts').where({ id: cartId }).whereNull('deleted_at').first('stripe_order_id', 'tenant_id');
     const sessionId = cart?.stripe_order_id;
 
     if(!isSessionId(sessionId)) {
-        await releaseCheckoutHold(cartId);
+        await releaseCheckoutHold(cartId, trx, cart?.tenant_id);
         return { status: 'none' };
     }
 
@@ -129,8 +138,8 @@ export async function cancelCheckout(cartId) {
         await StripeService.expireCheckoutSession(sessionId);
     }
 
-    await clearSession(cartId, sessionId);
-    ServiceStream.publish();
+    await clearSession(cartId, sessionId, trx);
+    ServiceStream.publish(cart?.tenant_id);
 
     return { status: 'cancelled' };
 }
@@ -184,12 +193,12 @@ const itemUnavailable = (productId, title) => {
     });
 };
 
-export function createCheckoutForCart(cartId) {
-    return withCartLock(cartId, () => createCheckout(cartId));
+export function createCheckoutForCart(cartId, trx) {
+    return withCartLock(cartId, () => createCheckout(cartId, trx));
 }
 
-async function createCheckout(cartId) {
-    const cart = await CartSvc.fetchOne({ where: { id: cartId } });
+async function createCheckout(cartId, trx = db) {
+    const cart = await CartSvc.fetchOne({ where: { id: cartId }, trx });
 
     if(!cart || cart.closed_at) {
         throw new Error('Cart is not available for checkout');
@@ -203,7 +212,7 @@ async function createCheckout(cartId) {
     // Product ids offered by the service's current published menu (FR-008a)
     let offeredIds = null;
     if(cart.service_id) {
-        const offered = await db('service as s')
+        const offered = await trx('service as s')
             .join('service_menus as m', 'm.id', 's.service_menu_id')
             .join('service_menu_products as smp', 'smp.service_menu_id', 'm.id')
             .where('s.id', cart.service_id)
@@ -216,7 +225,7 @@ async function createCheckout(cartId) {
     const lineItems = [];
 
     for(const item of cartItems) {
-        const product = await ProductSvc.fetchOne({ where: { id: item.product?.id } });
+        const product = await ProductSvc.fetchOne({ where: { id: item.product?.id }, trx });
 
         if(!product || !product.published) {
             throw itemUnavailable(item.product?.id, item.product?.title);
@@ -267,8 +276,13 @@ async function createCheckout(cartId) {
 
     const storefrontUrl = getStorefrontUrl();
 
-    await reserveCheckoutStock(cart.id);
-    ServiceStream.publish();
+    // reserveCheckoutStock deliberately opens its own short transaction (see its own comment)
+    // rather than using this request's ambient `trx`. A plain targeted read, not
+    // CartSvc.fetchOne — tenant_id isn't in CartModel's Joi schema (deliberately: that schema
+    // also drives what a client payload may set, and tenant_id must never be client-settable).
+    const { tenant_id: cartTenantId } = await trx('carts').where({ id: cart.id }).first('tenant_id');
+    await reserveCheckoutStock(cart.id, {}, cartTenantId);
+    ServiceStream.publish(cartTenantId);
 
     let session;
 
@@ -283,7 +297,7 @@ async function createCheckout(cartId) {
         });
     }
     catch(err) {
-        await releaseCheckoutHold(cart.id);
+        await releaseCheckoutHold(cart.id, trx, cartTenantId);
         throw err;
     }
 
@@ -292,10 +306,10 @@ async function createCheckout(cartId) {
         ? new Date(session.expires_at * 1000 + HOLD_MARGIN_MS)
         : new Date(Date.now() + PROVISIONAL_HOLD_MS + HOLD_MARGIN_MS);
 
-    await db('carts').where({ id: cart.id }).update({
+    await trx('carts').where({ id: cart.id }).update({
         stripe_order_id: session.id,
         checkout_expires_at: holdUntil,
-        updated_at: db.fn.now()
+        updated_at: trx.fn.now()
     });
 
     return { url: session.url };
@@ -305,6 +319,13 @@ async function createCheckout(cartId) {
 /**
  * Completes a cart from a verified checkout.session.completed event.
  * Safe to call repeatedly: Stripe retries webhooks.
+ *
+ * Unlike every other function in this file, there is no ambient request-scoped transaction
+ * here — this runs from the Stripe webhook route (`auth: false`, authenticated by Stripe's
+ * signature, not a tenant-bearing session), so no tenant context exists yet when this is
+ * called. `get_cart_tenant_id()` (a narrow SECURITY DEFINER function, see migration
+ * 96_multi_tenant_foundation.js) resolves it, then everything else proceeds inside a normal
+ * tenant-scoped transaction like any other request.
  */
 export async function completeCartFromSession(session) {
     const cartId = session.client_reference_id || session.metadata?.cart_id;
@@ -318,67 +339,98 @@ export async function completeCartFromSession(session) {
         return { handled: false };
     }
 
-    const cart = await db('carts').where({ id: cartId }).whereNull('deleted_at').first();
+    const { rows } = await db.raw('SELECT get_cart_tenant_id(?) AS tenant_id', [cartId]);
+    const tenantId = rows[0]?.tenant_id;
 
-    if(!cart) {
+    if(!tenantId) {
         global.logger.error('Checkout: paid session for a cart that does not exist', {
             meta: { session_id: session.id, cart_id: cartId }
         });
         return { handled: false };
     }
 
-    if(cart.closed_at) {
-        if(cart.stripe_order_id !== session.id) {
-            global.logger.error('Checkout: cart was already paid by another session, refund required', {
-                meta: { session_id: session.id, cart_id: cartId, paid_session_id: cart.stripe_order_id }
+    return db.transaction(async (trx) => {
+        await trx.raw('SELECT set_config(?, ?, true)', ['app.current_tenant_id', tenantId]);
+
+        // Found by independent QA review: onPreHandler's suspended-tenant check (T035) only
+        // runs for requests that go through it, and this webhook deliberately doesn't (no
+        // ambient auth/trx exists for Stripe's callback — see this function's own comment
+        // above). Checked here too so a tenant suspended after a customer already reached
+        // Stripe's hosted Checkout page doesn't still get a completed order recorded. The
+        // payment itself was already authorized by Stripe by this point either way — this
+        // can't un-charge the customer — so this only controls whether OUR record of it
+        // completes, not whether money moved.
+        const tenant = await trx('tenants').where({ id: tenantId }).first('status');
+
+        if(tenant?.status === 'suspended') {
+            global.logger.error('Checkout: paid session for a suspended tenant, not completing', {
+                meta: { session_id: session.id, cart_id: cartId, tenant_id: tenantId }
+            });
+            return { handled: false };
+        }
+
+        const cart = await trx('carts').where({ id: cartId }).whereNull('deleted_at').first();
+
+        if(!cart) {
+            global.logger.error('Checkout: paid session for a cart that does not exist', {
+                meta: { session_id: session.id, cart_id: cartId }
+            });
+            return { handled: false };
+        }
+
+        if(cart.closed_at) {
+            if(cart.stripe_order_id !== session.id) {
+                global.logger.error('Checkout: cart was already paid by another session, refund required', {
+                    meta: { session_id: session.id, cart_id: cartId, paid_session_id: cart.stripe_order_id }
+                });
+            }
+
+            return { handled: false };
+        }
+
+        const details = session.customer_details || {};
+        const address = details.address || {};
+        const [firstName, ...rest] = (details.name || '').trim().split(/\s+/);
+        const billing = {
+            billing_firstName: firstName || null,
+            billing_lastName: rest.join(' ') || null,
+            billing_streetAddress: address.line1 || null,
+            billing_extendedAddress: address.line2 || null,
+            billing_city: address.city || null,
+            billing_state: address.state || null,
+            billing_postalCode: address.postal_code || null,
+            billing_countryCodeAlpha2: address.country || null,
+            billing_phone: details.phone || null,
+        };
+
+        const serverCart = await CartSvc.fetchOne({ where: { id: cartId }, trx });
+
+        // The cart may have been edited after the session was created
+        if(serverCart && serverCart.price_subtotal !== session.amount_subtotal) {
+            global.logger.error('Checkout: paid amount differs from current cart contents, review order', {
+                meta: {
+                    session_id: session.id,
+                    cart_id: cartId,
+                    cart_subtotal: serverCart.price_subtotal,
+                    paid_subtotal: session.amount_subtotal
+                }
             });
         }
 
-        return { handled: false };
-    }
-
-    const details = session.customer_details || {};
-    const address = details.address || {};
-    const [firstName, ...rest] = (details.name || '').trim().split(/\s+/);
-    const billing = {
-        billing_firstName: firstName || null,
-        billing_lastName: rest.join(' ') || null,
-        billing_streetAddress: address.line1 || null,
-        billing_extendedAddress: address.line2 || null,
-        billing_city: address.city || null,
-        billing_state: address.state || null,
-        billing_postalCode: address.postal_code || null,
-        billing_countryCodeAlpha2: address.country || null,
-        billing_phone: details.phone || null,
-    };
-
-    const serverCart = await CartSvc.fetchOne({ where: { id: cartId } });
-
-    // The cart may have been edited after the session was created
-    if(serverCart && serverCart.price_subtotal !== session.amount_subtotal) {
-        global.logger.error('Checkout: paid amount differs from current cart contents, review order', {
-            meta: {
-                session_id: session.id,
-                cart_id: cartId,
-                cart_subtotal: serverCart.price_subtotal,
-                paid_subtotal: session.amount_subtotal
-            }
+        await trx('carts').where({ id: cartId }).whereNull('closed_at').update({
+            ...billing,
+            sales_tax: session.total_details?.amount_tax ?? 0,
+            currency: session.currency || cart.currency,
+            stripe_payment_intent_id: typeof session.payment_intent === 'string'
+                ? session.payment_intent
+                : session.payment_intent?.id || null,
+            stripe_order_id: session.id,
+            closed_at: trx.fn.now(),
+            updated_at: trx.fn.now()
         });
-    }
 
-    await db('carts').where({ id: cartId }).whereNull('closed_at').update({
-        ...billing,
-        sales_tax: session.total_details?.amount_tax ?? 0,
-        currency: session.currency || cart.currency,
-        stripe_payment_intent_id: typeof session.payment_intent === 'string'
-            ? session.payment_intent
-            : session.payment_intent?.id || null,
-        stripe_order_id: session.id,
-        closed_at: db.fn.now(),
-        updated_at: db.fn.now()
+        ServiceStream.publish(tenantId);
+
+        return { handled: true, cartId };
     });
-
-    ServiceStream.publish();
-
-    return { handled: true, cartId };
 }

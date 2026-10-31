@@ -8,17 +8,19 @@ export default class ProductTypeService extends BaseService {
     }
 
 
-    async addProductType(data) {
+    async addProductType(data, trx, tenantId) {
         // const allTypes = await super.search({
         //     where: { object: data.object }
         // });
 
-        const allTypes = await super.search();
+        const allTypes = await super.search({ trx });
 
         data.value = this.getNextAvailableTypeValue(allTypes);
 
         return super.upsertOne({
-            data: data
+            data: data,
+            trx,
+            tenantId
         });
     }
 

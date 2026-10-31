@@ -14,9 +14,10 @@ export default class BaseController {
     }
 
 
-    async throwIfNotFound(id) {
+    async throwIfNotFound(id, request) {
         const Model = await this.service.fetchOne({
-            where: { id }
+            where: { id },
+            trx: request?.app?.trx
         });
 
         if(!Model) {
@@ -36,7 +37,8 @@ export default class BaseController {
             });
 
             const response = await this.service.fetchOne({
-                where: { id: request.query.id }
+                where: { id: request.query.id },
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.getByIdHandler`, {
@@ -59,7 +61,9 @@ export default class BaseController {
             });
 
             const response = await this.service.create({
-                data: request.payload
+                data: request.payload,
+                trx: request.app.trx,
+                tenantId: request.app.tenantId
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.createHandler`, {
@@ -81,11 +85,12 @@ export default class BaseController {
                 meta: request.payload
             });
 
-            await this.throwIfNotFound(request.payload.id);
+            await this.throwIfNotFound(request.payload.id, request);
 
             const response = await this.service.update({
                 data: request.payload,
-                where: { id: request.payload.id }
+                where: { id: request.payload.id },
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.updateHandler`, {
@@ -108,11 +113,12 @@ export default class BaseController {
             });
 
             if(request.payload.id) {
-                await this.throwIfNotFound(request.payload.id);
+                await this.throwIfNotFound(request.payload.id, request);
             }
 
             const response = await this.service.upsertOne({
-                data: request.payload
+                data: request.payload,
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.upsertHandler`, {
@@ -139,7 +145,8 @@ export default class BaseController {
             //TODO: Remove pagination params from query object and pass them in as separate params
 
             const response = await this.service.search({
-                where: request.query
+                where: request.query,
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.searchHandler`, {
@@ -163,10 +170,11 @@ export default class BaseController {
                 meta: request.query
             });
 
-            await this.throwIfNotFound(request.query.id);
+            await this.throwIfNotFound(request.query.id, request);
 
             const response = await this.service.del({
-                where: { id: request.query.id }
+                where: { id: request.query.id },
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ${this.getControllerName()}.deleteHandler`, {
@@ -198,7 +206,8 @@ export default class BaseController {
                     this.service.update({
                         where: { id: obj.id },
                         data: { ordinal: obj.ordinal },
-                        columns: [ 'id', 'ordinal' ]
+                        columns: [ 'id', 'ordinal' ],
+                        trx: request.app.trx
                     })
                 );
             });

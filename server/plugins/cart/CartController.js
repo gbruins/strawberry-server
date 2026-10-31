@@ -14,10 +14,10 @@ export default class CartController extends BaseController {
 
     async getByIdHandler(request, h) {
         try {
-            const cart = await this.service.fetchOne({ where: { id: request.query.id } });
+            const cart = await this.service.fetchOne({ where: { id: request.query.id }, trx: request.app.trx });
 
             if(cart) {
-                cart.checkout_in_progress = await this.isLocked(cart);
+                cart.checkout_in_progress = await this.isLocked(cart, request.app.trx);
             }
 
             return h.apiSuccess(cart);
@@ -30,13 +30,13 @@ export default class CartController extends BaseController {
 
     // True while the cart's Stripe session is live. The stock hold outlasts the session,
     // so checkout_expires_at alone would report a lock that edits no longer see.
-    async isLocked(cart) {
+    async isLocked(cart, trx) {
         if(cart.closed_at || !cart.stripe_order_id) {
             return false;
         }
 
         try {
-            return await isCheckoutInProgress(cart.id, cart.stripe_order_id);
+            return await isCheckoutInProgress(cart.id, cart.stripe_order_id, trx);
         }
         catch(err) {
             global.logger.error(err);
@@ -51,7 +51,7 @@ export default class CartController extends BaseController {
                 meta: request.payload
             });
 
-            const cart = await this.service.createWithToken(request.payload);
+            const cart = await this.service.createWithToken(request.payload, request.app.trx, request.app.tenantId);
 
             return h.apiSuccess(cart);
         }
@@ -86,7 +86,8 @@ export default class CartController extends BaseController {
 
             await this.service.update({
                 data: { id: request.payload.id, customer_note: note || null },
-                where: { id: request.payload.id }
+                where: { id: request.payload.id },
+                trx: request.app.trx
             });
 
             return this.getByIdHandler({ ...request, query: { id: request.payload.id } }, h);
@@ -107,7 +108,7 @@ export default class CartController extends BaseController {
                 meta: { id: request.payload.id }
             });
 
-            const checkout = await createCheckoutForCart(request.payload.id);
+            const checkout = await createCheckoutForCart(request.payload.id, request.app.trx);
 
             return h.apiSuccess(checkout);
         }
@@ -127,7 +128,7 @@ export default class CartController extends BaseController {
                 meta: { id: request.payload.id }
             });
 
-            return h.apiSuccess(await cancelCheckout(request.payload.id));
+            return h.apiSuccess(await cancelCheckout(request.payload.id, request.app.trx));
         }
         catch(err) {
             global.logger.error(err);

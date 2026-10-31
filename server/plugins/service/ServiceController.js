@@ -13,14 +13,14 @@ export default class ServiceController extends BaseController {
 
 
     async nextHandler(request, h) {
-        const state = await buildState();
+        const state = await buildState(new Date(), request.app.trx, request.app.tenantId);
         return h.apiSuccess(state);
     }
 
 
     async streamHandler(request, h) {
         const ip = getClientIp(request);
-        const stream = await ServiceStream.subscribe(ip);
+        const stream = await ServiceStream.subscribe(ip, undefined, request.app.tenantId);
 
         if(!stream) {
             throw Boom.tooManyRequests('Too many open streams');

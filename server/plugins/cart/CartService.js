@@ -44,8 +44,8 @@ export default class CartService extends BaseService {
     }
 
 
-    addRelations(carts) {
-        return this.CartItemService.addRelationToCarts(carts);
+    addRelations(carts, trx) {
+        return this.CartItemService.addRelationToCarts(carts, trx);
     }
 
 
@@ -72,7 +72,7 @@ export default class CartService extends BaseService {
         return data;
     }
 
-    getActiveCart(id) {
+    getActiveCart(id, trx) {
         if(!id) {
             return false;
         }
@@ -81,7 +81,8 @@ export default class CartService extends BaseService {
             where: {
                 id: id,
                 closed_at: { 'is_null': true }
-            }
+            },
+            trx
         });
     }
 
@@ -92,17 +93,23 @@ export default class CartService extends BaseService {
      *
      * @returns the cart with a one-time `cart_token` property
      */
-    async createWithToken(data) {
+    async createWithToken(data, trx = db, tenantId) {
         const token = crypto.randomBytes(32).toString('base64url');
         const payload = data ? this.prepareForUpsert(data) : {};
         delete payload.id;
 
-        const results = await db
+        // tenant_id is never client-settable (not in CartModel's Joi schema) — always taken
+        // from the caller's resolved tenant context, same rule as BaseService.create().
+        if(tenantId) {
+            payload.tenant_id = tenantId;
+        }
+
+        const results = await trx
             .returning(this.model.getAllColumns())
             .insert({ ...payload, token_hash: hashToken(token) })
             .into(this.model.tableName);
 
-        await this.addRelations(results);
+        await this.addRelations(results, trx);
         this.addVirtuals(results);
 
         return { ...results[0], cart_token: token };
@@ -114,8 +121,8 @@ export default class CartService extends BaseService {
      *
      * @returns {Promise<{ exists: boolean, valid: boolean, closed: boolean, checkoutSessionId: string|null }>}
      */
-    async checkToken(cartId, token) {
-        const row = await db
+    async checkToken(cartId, token, trx = db) {
+        const row = await trx
             .select('token_hash', 'closed_at', 'stripe_order_id')
             .from(this.model.tableName)
             .where({ id: cartId })
@@ -144,8 +151,8 @@ export default class CartService extends BaseService {
      *
      * @returns {Promise<boolean>} true if the cart was reset
      */
-    async resetIfServiceEnded(cartId, now = new Date()) {
-        const row = await db('carts as c')
+    async resetIfServiceEnded(cartId, now = new Date(), trx = db) {
+        const row = await trx('carts as c')
             .join('service as s', 's.id', 'c.service_id')
             .where('c.id', cartId)
             .whereNull('c.closed_at')
@@ -160,32 +167,30 @@ export default class CartService extends BaseService {
             return false;
         }
 
-        await db.transaction(async (trx) => {
-            await trx('cart_items')
-                .where({ cart_id: cartId })
-                .whereNull('deleted_at')
-                .update({ deleted_at: trx.fn.now() });
+        await trx('cart_items')
+            .where({ cart_id: cartId })
+            .whereNull('deleted_at')
+            .update({ deleted_at: trx.fn.now() });
 
-            await trx('carts').where({ id: cartId }).update({
-                service_id: null,
-                checkout_expires_at: null,
-                stripe_order_id: null,
-                updated_at: trx.fn.now()
-            });
+        await trx('carts').where({ id: cartId }).update({
+            service_id: null,
+            checkout_expires_at: null,
+            stripe_order_id: null,
+            updated_at: trx.fn.now()
         });
 
         return true;
     }
 
 
-    async getOrCreateCart(id) {
-        const Cart = await this.getActiveCart(id);
+    async getOrCreateCart(id, trx, tenantId) {
+        const Cart = await this.getActiveCart(id, trx);
 
         if(Cart) {
             return Cart;
         }
 
-        return this.create({});
+        return this.create({ trx, tenantId });
     }
 
 

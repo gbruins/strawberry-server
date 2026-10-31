@@ -15,8 +15,8 @@ export default class ServiceMenuService extends BaseService {
      * Products on a menu in display order. Store callers only get published,
      * non-deleted products; admins also get a `published` flag per product.
      */
-    async getProducts(menuId, { publishedOnly = false } = {}) {
-        const qb = db('service_menu_products as smp')
+    async getProducts(menuId, { publishedOnly = false, trx = db } = {}) {
+        const qb = trx('service_menu_products as smp')
             .join('products as p', 'p.id', 'smp.product_id')
             .where('smp.service_menu_id', menuId)
             .whereNull('p.deleted_at')
@@ -35,7 +35,7 @@ export default class ServiceMenuService extends BaseService {
     /**
      * Replaces the products on a menu and their order with the given list.
      */
-    async setProducts(menuId, productIds) {
+    async setProducts(menuId, productIds, trx = db, tenantId) {
         const ids = productIds || [];
 
         if(new Set(ids).size !== ids.length) {
@@ -43,7 +43,7 @@ export default class ServiceMenuService extends BaseService {
         }
 
         if(ids.length) {
-            const found = await db('products')
+            const found = await trx('products')
                 .whereIn('id', ids)
                 .whereNull('deleted_at')
                 .count({ count: '*' })
@@ -54,37 +54,35 @@ export default class ServiceMenuService extends BaseService {
             }
         }
 
-        await db.transaction(async (trx) => {
-            await trx('service_menu_products').where({ service_menu_id: menuId }).del();
+        await trx('service_menu_products').where({ service_menu_id: menuId }).del();
 
-            if(ids.length) {
-                await trx('service_menu_products').insert(
-                    ids.map((product_id, i) => ({
-                        service_menu_id: menuId,
-                        product_id,
-                        ordinal: i + 1
-                    }))
-                );
-            }
-        });
+        if(ids.length) {
+            await trx('service_menu_products').insert(
+                ids.map((product_id, i) => ({
+                    service_menu_id: menuId,
+                    product_id,
+                    ordinal: i + 1
+                }))
+            );
+        }
 
-        ServiceStream.publish();
+        ServiceStream.publish(tenantId);
 
-        return this.getProducts(menuId);
+        return this.getProducts(menuId, { trx });
     }
 
 
     /**
      * Open or upcoming services that use each of the given menus.
      */
-    async getServicesByMenu(menuIds) {
+    async getServicesByMenu(menuIds, trx = db) {
         if(!menuIds.length) {
             return {};
         }
 
-        const rows = await db('service')
+        const rows = await trx('service')
             .whereIn('service_menu_id', menuIds)
-            .where('end_at', '>', db.fn.now())
+            .where('end_at', '>', trx.fn.now())
             .orderBy('start_at')
             .select('id', 'service_menu_id', 'start_at', 'end_at');
 
@@ -97,7 +95,7 @@ export default class ServiceMenuService extends BaseService {
     }
 
 
-    async addRelations(results) {
+    async addRelations(results, trx = db) {
         const list = Array.isArray(results) ? results : [results];
         const ids = list.filter(Boolean).map((m) => m.id);
 
@@ -105,7 +103,7 @@ export default class ServiceMenuService extends BaseService {
             return results;
         }
 
-        const counts = await db('service_menu_products as smp')
+        const counts = await trx('service_menu_products as smp')
             .join('products as p', 'p.id', 'smp.product_id')
             .whereIn('smp.service_menu_id', ids)
             .whereNull('p.deleted_at')
@@ -114,7 +112,7 @@ export default class ServiceMenuService extends BaseService {
             .count({ count: '*' });
 
         const countMap = Object.fromEntries(counts.map((c) => [c.service_menu_id, Number(c.count)]));
-        const services = await this.getServicesByMenu(ids);
+        const services = await this.getServicesByMenu(ids, trx);
 
         list.filter(Boolean).forEach((m) => {
             m.product_count = countMap[m.id] || 0;

@@ -24,7 +24,7 @@ export const cartPlugin = {
                     description: 'Gets a list of carts',
                     auth: {
                         // App should not be able to see other carts
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     }
                 }
             }),
@@ -34,7 +34,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Gets a cart by ID',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.query.id) }],
                     ext: { onPreResponse: { method: redactCartForStore } }
@@ -46,7 +46,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Adds a new cart',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: restrictStoreFields }],
                     ext: { onPreResponse: { method: redactCartForStore } },
@@ -61,7 +61,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Updates a cart',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [
                         { method: requireCartAccess((request) => request.payload.id, { mutates: true }) },
@@ -77,7 +77,7 @@ export const cartPlugin = {
                     description: 'Deletes a cart',
                     auth: {
                         // App should not be able to delete carts
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     }
                 }
             }),
@@ -88,7 +88,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Creates a Stripe Checkout Session for a cart and returns its URL',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     plugins: {
@@ -111,7 +111,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Abandons the open Stripe Checkout Session so the cart can be edited again',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     validate: {
@@ -131,7 +131,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Updates the note the customer leaves for the kitchen',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
                     ext: { onPreResponse: { method: redactCartForStore } },
@@ -153,7 +153,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Updates the admin notes for a cart',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                     validate: {
                         payload: Joi.object({
@@ -175,7 +175,7 @@ export const cartPlugin = {
                     description: 'Adds an item to Cart',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.cart_id, { mutates: true }) }],
                     validate: {
@@ -195,9 +195,9 @@ export const cartPlugin = {
                     description: 'Updates a CartItem',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.payload.id), { mutates: true }) }],
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.payload.id, request.app.trx), { mutates: true }) }],
                     validate: {
                         payload: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForUpdate()
@@ -215,9 +215,9 @@ export const cartPlugin = {
                     description: 'Deletes a CartItem',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.query.id), { mutates: true }) }],
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.query.id, request.app.trx), { mutates: true }) }],
                     validate: {
                         query: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForId()

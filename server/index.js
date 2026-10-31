@@ -4,7 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import Boom from '@hapi/boom';
 import Hapi from '@hapi/hapi';
-import HapiCookie from '@hapi/cookie';
 import HapiBasic from '@hapi/basic';
 import HapiRateLimit from 'hapi-rate-limit';
 import { serverExtensionsPlugin } from './plugins/serverExtensions/index.js';
@@ -23,7 +22,10 @@ import { pickClientIp, trustedProxyHops } from './utils/clientIp.js';
 
 dotenv.config();
 
-async function init() {
+// Builds and registers the server WITHOUT starting it (no `server.start()`, no port binding) —
+// so tests can `server.inject()` requests directly against the route table (the standard Hapi
+// testing pattern). The actual process entrypoint below calls `.start()` after this.
+export async function init() {
     const isProd = process.env.NODE_ENV === 'production';
     const apiPrefix = '/api/v1';
 
@@ -64,7 +66,7 @@ async function init() {
     const server = Hapi.server(serverOptions);
 
     // Register plugins here
-    await server.register([HapiCookie, HapiBasic]);
+    await server.register([HapiBasic]);
     await server.register(serverExtensionsPlugin);
     await server.register(loggerPlugin);
 
@@ -175,8 +177,14 @@ async function init() {
     //     }
     // );
 
-    await server.start();
-    console.log('Server running on %s', server.info.uri);
+    // Required even for tests that only use server.inject() and never call .start(): several
+    // plugins (hapi-rate-limit's internal catbox cache, at least) only connect their backing
+    // cache on initialize(), not on registration — without this, inject() throws "Disconnected"
+    // from deep inside hapi-rate-limit's authFailure handling, nothing to do with this
+    // feature's own code. .start() below calls this too, but it's idempotent.
+    await server.initialize();
+
+    return server;
 };
 
 process.on('unhandledRejection', (err) => {
@@ -184,4 +192,10 @@ process.on('unhandledRejection', (err) => {
     process.exit(1);
 });
 
-init();
+// Only start listening when this file is run directly (`node server/index.js`), not when
+// `init` is imported by tests.
+if (import.meta.url === `file://${process.argv[1]}`) {
+    const server = await init();
+    await server.start();
+    console.log('Server running on %s', server.info.uri);
+}

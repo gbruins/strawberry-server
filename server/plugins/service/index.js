@@ -20,7 +20,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Server-Sent Events stream of the service state',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     timeout: { socket: false, server: false },
                     response: { emptyStatusCode: 200 }
@@ -34,7 +34,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets the current or next service state',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     }
                 }
             },
@@ -44,7 +44,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a list of services',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                 }
             }),
@@ -54,7 +54,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a service by ID',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                 }
             }),

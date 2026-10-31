@@ -46,13 +46,22 @@ async function fetchPublishedMenu(menuId, knex = db) {
  * Builds the read model for the storefront: the current or next service, its
  * status, the pizzas remaining and the published menu.
  */
-export async function buildState(now = new Date(), knex = db) {
+export async function buildState(now = new Date(), knex = db, tenantId = null) {
     const state = {
         status: 'none',
         server_now: now.toISOString(),
+        timezone: null,
         service: null,
         next_service: null
     };
+
+    // `tenants` has no tenant_isolation RLS policy (control-plane table, readable by any
+    // tenant's connection — research.md #3's third addendum), so the row has to be filtered
+    // explicitly by tenantId rather than relying on RLS the way every other query here does.
+    if (tenantId) {
+        const tenant = await knex('tenants').where({ id: tenantId }).first('timezone');
+        state.timezone = tenant?.timezone ?? null;
+    }
 
     const services = await knex('service')
         .where('end_at', '>', now)
@@ -82,4 +91,17 @@ export async function buildState(now = new Date(), knex = db) {
     }
 
     return state;
+}
+
+
+/**
+ * Like buildState(), but for callers with no ambient request transaction (the SSE hub's
+ * background timer and its cross-tenant publish() calls — ServiceStream.js) — opens its own
+ * short transaction scoped to the given tenant.
+ */
+export async function buildStateForTenant(tenantId, now = new Date()) {
+    return db.transaction(async (trx) => {
+        await trx.raw('SELECT set_config(?, ?, true)', ['app.current_tenant_id', tenantId]);
+        return buildState(now, trx, tenantId);
+    });
 }

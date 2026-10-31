@@ -18,7 +18,7 @@ export const productPlugin = {
                 options: {
                     description: 'Gets a list of products',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     pre: [{ method: publishedOnlyForStore }]
                 },
@@ -29,7 +29,7 @@ export const productPlugin = {
                 options: {
                     description: 'Gets a product by ID',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                     pre: [{ method: publishedByIdForStore }]
                 }
