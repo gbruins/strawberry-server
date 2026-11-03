@@ -2,7 +2,7 @@ import Joi from 'joi';
 import Boom from '@hapi/boom';
 import BaseController from '../base/BaseController.js';
 import ServiceMenuService from './ServiceMenuService.js';
-import ServiceStream from '../service/ServiceStream.js';
+import { touchServiceActivity } from '../service/ServiceActivity.js';
 
 // Store (apiKey) callers are public clients: they only see published menus
 const isStoreCaller = (request) => request.auth?.strategy === 'apiKey';
@@ -43,14 +43,14 @@ export default class ServiceMenuController extends BaseController {
 
     async updateHandler(request, h) {
         const response = await super.updateHandler(request, h);
-        ServiceStream.publish(request.app.tenantId);
+        await touchServiceActivity(request.app.tenantId, request.app.trx);
         return response;
     }
 
 
     async deleteHandler(request, h) {
         const response = await super.deleteHandler(request, h);
-        ServiceStream.publish(request.app.tenantId);
+        await touchServiceActivity(request.app.tenantId, request.app.trx);
         return response;
     }
 

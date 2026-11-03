@@ -2,7 +2,7 @@ import Boom from '@hapi/boom';
 import db from '../../db/knex.js';
 import ServiceMenuModel from './ServiceMenuModel.js';
 import BaseService from '../base/BaseService.js';
-import ServiceStream from '../service/ServiceStream.js';
+import { touchServiceActivity } from '../service/ServiceActivity.js';
 
 export default class ServiceMenuService extends BaseService {
 
@@ -67,7 +67,7 @@ export default class ServiceMenuService extends BaseService {
             );
         }
 
-        ServiceStream.publish(tenantId);
+        await touchServiceActivity(tenantId, trx);
 
         return this.getProducts(menuId, { trx });
     }

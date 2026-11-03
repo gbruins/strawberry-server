@@ -3,7 +3,7 @@ import ProductService from '../products/ProductService.js';
 import StripeService from '../stripe/StripeService.js';
 import db from '../../db/knex.js';
 import Boom from '@hapi/boom';
-import ServiceStream from '../service/ServiceStream.js';
+import { touchServiceActivity } from '../service/ServiceActivity.js';
 import { allocatePickupCode } from './PickupCodeService.js';
 import { sendReceiptEmail } from '../notifications/NotificationService.js';
 import {
@@ -39,7 +39,7 @@ export async function releaseCheckoutHold(cartId, trx = db, tenantId) {
         .whereNull('closed_at')
         .update({ checkout_expires_at: null, updated_at: trx.fn.now() });
 
-    ServiceStream.publish(tenantId);
+    await touchServiceActivity(tenantId, trx);
 }
 
 
@@ -141,7 +141,7 @@ export async function cancelCheckout(cartId, trx = db) {
     }
 
     await clearSession(cartId, sessionId, trx);
-    ServiceStream.publish(cart?.tenant_id);
+    await touchServiceActivity(cart?.tenant_id, trx);
 
     return { status: 'cancelled' };
 }
@@ -287,7 +287,7 @@ async function createCheckout(cartId, trx = db) {
     // also drives what a client payload may set, and tenant_id must never be client-settable).
     const { tenant_id: cartTenantId } = await trx('carts').where({ id: cart.id }).first('tenant_id');
     await reserveCheckoutStock(cart.id, {}, cartTenantId);
-    ServiceStream.publish(cartTenantId);
+    await touchServiceActivity(cartTenantId, trx);
 
     let session;
 
@@ -445,7 +445,7 @@ export async function completeCartFromSession(session) {
             updated_at: trx.fn.now()
         });
 
-        ServiceStream.publish(tenantId);
+        await touchServiceActivity(tenantId, trx);
 
         // Gathered here, inside the transaction, so the actual Postmark call below can happen
         // entirely after commit without any further tenant-scoped reads (RLS tenant context is

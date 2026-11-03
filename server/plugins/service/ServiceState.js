@@ -92,16 +92,3 @@ export async function buildState(now = new Date(), knex = db, tenantId = null) {
 
     return state;
 }
-
-
-/**
- * Like buildState(), but for callers with no ambient request transaction (the SSE hub's
- * background timer and its cross-tenant publish() calls — ServiceStream.js) — opens its own
- * short transaction scoped to the given tenant.
- */
-export async function buildStateForTenant(tenantId, now = new Date()) {
-    return db.transaction(async (trx) => {
-        await trx.raw('SELECT set_config(?, ?, true)', ['app.current_tenant_id', tenantId]);
-        return buildState(now, trx, tenantId);
-    });
-}
