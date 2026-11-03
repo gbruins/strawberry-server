@@ -4,6 +4,22 @@ import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';
 import { createCheckoutForCart, cancelCheckout, isCheckoutInProgress } from './CheckoutService.js';
+import { sendOrderReadyEmail } from '../notifications/NotificationService.js';
+
+// Kitchen Display System: adjacent-step moves either direction (a shared touchscreen mis-tap
+// should be fixable by tapping the previous column), but never a skip-ahead straight to
+// 'completed' — that's a near-certain mis-tap, not an intentional move, and skipping it would
+// also bypass ever having been 'in_progress'. `from` must already be a ticket (not null/
+// undefined) — a cart with no kitchen_status yet isn't a ticket at all.
+const KITCHEN_STATUS_ORDER = ['queued', 'in_progress', 'completed'];
+
+function isAdjacentKitchenTransition(from, to) {
+    if (!from || !KITCHEN_STATUS_ORDER.includes(from) || !KITCHEN_STATUS_ORDER.includes(to)) {
+        return false;
+    }
+
+    return Math.abs(KITCHEN_STATUS_ORDER.indexOf(from) - KITCHEN_STATUS_ORDER.indexOf(to)) === 1;
+}
 
 export default class CartController extends BaseController {
 
@@ -135,6 +151,94 @@ export default class CartController extends BaseController {
             throw Boom.badRequest(err.message);
         }
     }
+
+    async updateKitchenStatusHandler(request, h) {
+        try {
+            const { id, kitchen_status: nextStatus } = request.payload;
+            const trx = request.app.trx;
+
+            const cart = await trx('carts').where({ id }).whereNull('deleted_at').first(
+                'id', 'tenant_id', 'kitchen_status', 'billing_email', 'pickup_code'
+            );
+
+            if (!cart) {
+                throw Boom.notFound();
+            }
+
+            if (!isAdjacentKitchenTransition(cart.kitchen_status, nextStatus)) {
+                throw Boom.badRequest(`Cannot move a ticket from "${cart.kitchen_status || 'none'}" to "${nextStatus}"`);
+            }
+
+            const [updated] = await trx('carts')
+                .where({ id })
+                .update({
+                    kitchen_status: nextStatus,
+                    kitchen_status_updated_at: trx.fn.now(),
+                    updated_at: trx.fn.now()
+                })
+                .returning(['id', 'kitchen_status', 'kitchen_status_updated_at']);
+
+            if (nextStatus === 'completed') {
+                await this.sendOrderReadyEmailIfDue(cart, trx);
+            }
+
+            return h.apiSuccess(updated);
+        }
+        catch (err) {
+            if (err.isBoom) {
+                throw err;
+            }
+
+            global.logger.error(err);
+            throw Boom.badRequest(err.message);
+        }
+    }
+
+
+    /**
+     * Gated on a conditional `UPDATE ... WHERE kitchen_ready_email_sent_at IS NULL` — the
+     * idempotency guard this column exists for (20261102120000_kitchen_status.js). Two tablets
+     * completing the same ticket near-simultaneously both reach this method, but only the one
+     * whose UPDATE actually affects a row (wins the race) goes on to send the email; the other
+     * sees zero rows returned and does nothing. Never cleared on a later status change, by
+     * design — re-completing a ticket must not re-send the email.
+     */
+    async sendOrderReadyEmailIfDue(cart, trx) {
+        if (!cart.billing_email) {
+            global.logger.info('Kitchen: completed ticket has no billing_email, skipping order-ready email', {
+                meta: { cartId: cart.id }
+            });
+            return;
+        }
+
+        const claimed = await trx('carts')
+            .where({ id: cart.id })
+            .whereNull('kitchen_ready_email_sent_at')
+            .update({ kitchen_ready_email_sent_at: trx.fn.now() });
+
+        if (!claimed) {
+            return;
+        }
+
+        const tenant = await trx('tenants').where({ id: cart.tenant_id }).first(
+            'name', 'address_line1', 'address_line2', 'address_city', 'address_state', 'address_postal_code', 'address_phone'
+        );
+
+        try {
+            await sendOrderReadyEmail({
+                tenantName: tenant?.name,
+                billingEmail: cart.billing_email,
+                pickupCode: cart.pickup_code,
+                tenantAddress: tenant || {}
+            });
+        }
+        catch (err) {
+            // The status transition already committed — a failed notification must not undo it
+            // or fail this request (same reasoning as CheckoutService's receipt-email handling).
+            global.logger.error(err, { meta: { cartId: cart.id } });
+        }
+    }
+
 
     getAdminNotesSchema() {
         return {

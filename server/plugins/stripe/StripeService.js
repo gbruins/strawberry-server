@@ -262,6 +262,62 @@ async function createCheckoutSession({
 }
 
 
+/**
+ * Creates a Checkout Session for Stripe's Embedded Checkout (research.md-equivalent decision:
+ * the payment form renders in an iframe on our own page instead of redirecting to a
+ * Stripe-hosted page). Otherwise identical to createCheckoutSession() — same stock/cart-lock
+ * semantics apply, since this is still a Checkout Session object under the hood; only how the
+ * customer reaches the payment form differs.
+ *
+ * Embedded mode has a single `returnUrl` instead of separate success/cancel URLs: the customer
+ * never leaves our page to begin with, so there's no separate hosted page to "cancel" from —
+ * abandoning payment happens via the existing in-app "Cancel payment" action instead.
+ *
+ * @param {string} sessionData.returnUrl - Where Stripe redirects after a completed payment;
+ *   include the literal `{CHECKOUT_SESSION_ID}` placeholder for Stripe to fill in.
+ */
+async function createEmbeddedCheckoutSession({
+    lineItems,
+    mode = 'payment',
+    returnUrl,
+    customerId = null,
+    metadata = {},
+    clientReferenceId = null,
+    automaticTax = false,
+}) {
+    if (!lineItems || lineItems.length === 0 || !returnUrl) {
+        throw new Error('lineItems and returnUrl are required');
+    }
+
+    try {
+        const session = await stripe.checkout.sessions.create({
+            // Not 'embedded_page' — that newer value needs an API version this account isn't
+            // pinned to yet (confirmed empirically: 'embedded_page' was rejected live with
+            // "you must upgrade to Stripe API version 2026-03-25.dahlia"). 'embedded' is what
+            // this account's actual pinned version accepts.
+            ui_mode: 'embedded',
+            payment_method_types: ['card'],
+            line_items: lineItems,
+            mode,
+            return_url: returnUrl,
+            customer: customerId || undefined,
+            metadata,
+            expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+            billing_address_collection: 'required',
+            phone_number_collection: { enabled: true },
+            ...(clientReferenceId ? { client_reference_id: clientReferenceId } : {}),
+            ...(automaticTax ? { automatic_tax: { enabled: true } } : {}),
+        });
+
+        return session;
+    }
+    catch (error) {
+        console.error('Error creating embedded Checkout Session:', error);
+        throw error;
+    }
+}
+
+
 async function retrieveCheckoutSession(sessionId) {
     return stripe.checkout.sessions.retrieve(sessionId);
 }
@@ -348,6 +404,7 @@ export default {
     createPrice,
     updatePrice,
     createCheckoutSession,
+    createEmbeddedCheckoutSession,
     expireCheckoutSession,
     retrieveCheckoutSession,
     createPaymentIntent,

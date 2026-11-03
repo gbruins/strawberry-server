@@ -80,7 +80,19 @@ This keeps local development convenient (with mkcert-generated certs) while ensu
 
 ## Checkout (Stripe)
 
-`POST /api/v1/cart/checkout` (store API key + `X-Cart-Token`) creates a Stripe-hosted Checkout Session from the cart's current product prices and returns `{ url }`. The cart is closed, and its tax, billing details and Stripe ids are set, only by the signed webhook `POST /api/v1/stripe/webhook`.
+`POST /api/v1/cart/checkout` (store API key + `X-Cart-Token`) creates a Stripe **Embedded**
+Checkout Session from the cart's current product prices and returns `{ client_secret }` — the
+storefront mounts Stripe's payment form inline on `/cart` with it, rather than redirecting to a
+Stripe-hosted page. Calling it again for the same cart's in-progress session hands back the same
+session, not a new one. The cart is closed, and its tax, billing details and Stripe ids are set,
+only by the signed webhook `POST /api/v1/stripe/webhook` — identical regardless of hosted vs.
+embedded, since both are the same Checkout Session object under the hood.
+
+Note: `ui_mode: 'embedded'` is what this account's current pinned Stripe API version accepts —
+newer accounts/versions may expect `'embedded_page'` instead (confirmed by testing live against
+this account; Stripe's own docs describe the newer value). If Stripe starts rejecting
+`createEmbeddedCheckoutSession()` with an "Invalid ui_mode" error, check which value the
+account's pinned API version actually wants.
 
 Environment variables:
 ```bash
@@ -89,7 +101,20 @@ STRIPE_WEBHOOK_SECRET=whsec_...        # signing secret of the webhook endpoint
 STRIPE_AUTOMATIC_TAX=true              # optional; requires Stripe Tax to be set up
 ```
 
-Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed`. Only cards are accepted, so a completed session is always paid. For local development: `stripe listen --forward-to localhost:10000/api/v1/stripe/webhook`.
+Register `https://<api host>/api/v1/stripe/webhook` in the Stripe dashboard for `checkout.session.completed`. Only cards are accepted, so a completed session is always paid.
+
+For local development, Stripe has no way to reach `localhost` directly, so webhooks never arrive (and carts never close) unless something forwards them — run `npm run stripe:listen` (wraps `stripe listen --events checkout.session.completed --forward-to https://localhost:10000/api/v1/stripe/webhook`) in its own terminal alongside `npm run dev`, and make sure `STRIPE_WEBHOOK_SECRET` matches the signing secret it prints. It's a separate manual step on purpose, not part of `npm run dev` itself — bundling it in would make the plain dev server fail/hang for anyone without the Stripe CLI installed and authenticated.
+
+The forward-to URL must be `https://`, not `http://`: this server runs TLS locally (mkcert certs, see above), so a plain HTTP POST to port 10000 gets back a TLS alert instead of an HTTP response, and `stripe listen` logs that as a generic "malformed HTTP response" connection error with no further detail.
+
+The `--events checkout.session.completed` flag matters, not just which event type: newer Stripe CLI versions require explicitly choosing an event format (`--events`, `--all-snapshot`, or `--all-thin`), and `completeCartFromSession()` reads `event.data.object` expecting the full, classic "snapshot" payload — naming the event directly via `--events` forwards it in that format, unlike `--all-thin`, which sends a lightweight payload this handler doesn't understand.
+
+Installing the Stripe CLI (macOS, one-time setup):
+```bash
+brew install stripe/stripe-cli/stripe
+stripe login   # opens a browser to link the CLI to your Stripe account (test mode)
+```
+For other platforms, see [Stripe's CLI install docs](https://docs.stripe.com/stripe-cli).
 
 ## Cart
 

@@ -1,6 +1,7 @@
 import Boom from '@hapi/boom';
 import isObject from 'lodash.isobject';
 import AuthService, { AdminUserNotFoundError } from '../auth/AuthService.js';
+import KitchenStationService from '../kitchen/KitchenStationService.js';
 import db from '../../db/knex.js';
 
 export const serverExtensionsPlugin = {
@@ -10,6 +11,7 @@ export const serverExtensionsPlugin = {
 
         const isProd = process.env.NODE_ENV === 'production';
         const AuthSvc = new AuthService();
+        const KitchenStationSvc = new KitchenStationService();
 
         // Basic auth for store API usage — the key alone resolves which tenant a storefront
         // request belongs to (contracts/tenant-resolution.md), attached to credentials here
@@ -63,6 +65,92 @@ export const serverExtensionsPlugin = {
         server.auth.strategy('adminBearer', 'bearer-jwt', {
             validate: (token, request) => AuthSvc.verifyAdminToken(token, request.headers['x-tenant-id'])
         });
+
+
+        // --- Kitchen station auth: opaque shift-session token, shared-PIN login (Kitchen
+        // Display System) --- A sibling scheme to bearer-jwt above, but there's no JWT to
+        // verify here — just an opaque token looked up against kitchen_stations, same
+        // bcrypt-loop-over-all-active-rows shape as apiKeyIsValid. Resolves `role: 'kitchen'`
+        // credentials with a `tenant_id`, so onPreHandler below (which only ever reads
+        // `credentials.tenant_id`, never which strategy produced it) gives this full RLS
+        // tenant-isolation for free.
+        server.auth.scheme('bearer-opaque', (server, options) => ({
+            authenticate: async (request, h) => {
+                const header = request.headers.authorization;
+
+                if (!header || !header.startsWith('Bearer ')) {
+                    throw Boom.unauthorized(null, 'Bearer');
+                }
+
+                const station = await options.validate(header.slice(7));
+
+                if (!station) {
+                    throw Boom.unauthorized('Invalid or expired station session', 'Bearer');
+                }
+
+                return h.authenticated({
+                    credentials: { station_id: station.id, tenant_id: station.tenant_id, role: 'kitchen' }
+                });
+            }
+        }));
+
+        server.auth.strategy('stationBearer', 'bearer-opaque', {
+            validate: (token) => KitchenStationSvc.validateSessionToken(token)
+        });
+
+
+        // --- Combined strategy for the handful of routes a kitchen station AND an owner both
+        // need to call (GET /kitchen/tickets, PUT /cart/kitchen-status) ---
+        //
+        // This is NOT just `auth: { strategies: ['adminBearer', 'stationBearer'] }`, because
+        // Hapi's multi-strategy fallthrough only tries the next strategy when a scheme reports
+        // "no credentials were presented at all" (Boom.unauthorized with no message — Boom sets
+        // `isMissing = true` only in that case, found by reading @hapi/boom's own unauthorized()
+        // source). adminBearer's own "header is missing/not Bearer" check does hit that path,
+        // which is why adminBearer+apiKey already coexist fine (the storefront never sends a
+        // Bearer header, so apiKey is always reached). But a station token IS a `Bearer <token>`
+        // header — adminBearer sees a well-formed Bearer header, tries to verify it as a JWT,
+        // and fails with a MESSAGE ("Invalid token"), which Boom does NOT mark as missing — so
+        // Hapi stops right there and never tries stationBearer at all. Confirmed empirically:
+        // a valid station token hit this exact wall with "Invalid token", and adding a
+        // console.log inside bearer-opaque's authenticate() never fired for that request.
+        //
+        // Trying both inside ONE scheme sidesteps Hapi's fallthrough semantics entirely rather
+        // than fighting them.
+        server.auth.scheme('bearer-admin-or-kitchen', (server, options) => ({
+            authenticate: async (request, h) => {
+                const header = request.headers.authorization;
+
+                if (!header || !header.startsWith('Bearer ')) {
+                    throw Boom.unauthorized(null, 'Bearer');
+                }
+
+                const token = header.slice(7);
+
+                try {
+                    const credentials = await AuthSvc.verifyAdminToken(token, request.headers['x-tenant-id']);
+                    return h.authenticated({ credentials });
+                }
+                catch (err) {
+                    if (err instanceof AdminUserNotFoundError) {
+                        throw Boom.forbidden('No admin account for this user');
+                    }
+                    // Not a valid admin JWT — fall through and try it as a station token.
+                }
+
+                const station = await KitchenStationSvc.validateSessionToken(token);
+
+                if (!station) {
+                    throw Boom.unauthorized('Invalid token', 'Bearer');
+                }
+
+                return h.authenticated({
+                    credentials: { station_id: station.id, tenant_id: station.tenant_id, role: 'kitchen' }
+                });
+            }
+        }));
+
+        server.auth.strategy('adminOrKitchenBearer', 'bearer-admin-or-kitchen', {});
 
 
         // https://hapi.dev/tutorials/auth/?lang=en_US#default

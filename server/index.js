@@ -14,12 +14,14 @@ import { authPlugin } from './plugins/auth/index.js';
 import { basePlugin } from './plugins/base/index.js';
 import { cartPlugin } from './plugins/cart/index.js';
 import { emailSubscribersPlugin } from './plugins/emailSubscribers/index.js';
+import { kitchenPlugin } from './plugins/kitchen/index.js';
 import { notificationsPlugin } from './plugins/notifications/index.js';
 import { productPlugin } from './plugins/products/index.js';
 import { productTypesPlugin } from './plugins/productTypes/index.js';
 import { servicePlugin } from './plugins/service/index.js';
 import { serviceMenuPlugin } from './plugins/serviceMenus/index.js';
 import { stripePlugin } from './plugins/stripe/index.js';
+import { tenantPlugin } from './plugins/tenant/index.js';
 import { pickClientIp, trustedProxyHops } from './utils/clientIp.js';
 
 dotenv.config();
@@ -141,6 +143,14 @@ export async function init() {
     });
 
     await server.register({
+        plugin: kitchenPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    await server.register({
         plugin: notificationsPlugin,
         options: {},
         routes: {
@@ -174,6 +184,14 @@ export async function init() {
 
     await server.register({
         plugin: serviceMenuPlugin,
+        options: {},
+        routes: {
+            prefix: apiPrefix
+        }
+    });
+
+    await server.register({
+        plugin: tenantPlugin,
         options: {},
         routes: {
             prefix: apiPrefix

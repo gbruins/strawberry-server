@@ -149,6 +149,26 @@ export const cartPlugin = {
 
             {
                 method: 'PUT',
+                path: '/cart/kitchen-status',
+                options: {
+                    description: 'Moves a kitchen ticket to the next status; completing one triggers the order-ready email',
+                    auth: {
+                        strategies: ['adminOrKitchenBearer']
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.getIdSchema(),
+                            kitchen_status: Joi.string().valid('queued', 'in_progress', 'completed').required()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.updateKitchenStatusHandler(request, h);
+                    }
+                }
+            },
+
+            {
+                method: 'PUT',
                 path: '/cart/notes',
                 options: {
                     description: 'Updates the admin notes for a cart',

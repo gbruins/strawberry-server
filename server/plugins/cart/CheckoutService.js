@@ -4,6 +4,8 @@ import StripeService from '../stripe/StripeService.js';
 import db from '../../db/knex.js';
 import Boom from '@hapi/boom';
 import ServiceStream from '../service/ServiceStream.js';
+import { allocatePickupCode } from './PickupCodeService.js';
+import { sendReceiptEmail } from '../notifications/NotificationService.js';
 import {
     HOLD_MARGIN_MS,
     PROVISIONAL_HOLD_MS,
@@ -156,13 +158,15 @@ function getStorefrontUrl() {
 
 
 /**
- * Creates a Stripe Checkout Session for a cart.
+ * Creates a Stripe embedded Checkout Session for a cart — the client mounts Stripe's payment
+ * form into the page itself using the returned client_secret, rather than being redirected to
+ * a Stripe-hosted page.
  *
  * Line items are built from the current product prices in the database,
  * never from anything the client sends or from the price snapshot stored on
  * the cart item.
  *
- * @returns {Promise<{ url: string }>}
+ * @returns {Promise<{ client_secret: string }>}
  */
 const checkoutLocks = new Map();
 
@@ -264,9 +268,10 @@ async function createCheckout(cartId, trx = db) {
             throw new Error('A payment for this cart is already being processed');
         }
 
-        // Pay pressed twice, or Continue to payment: hand back the same page
-        if(previous.status === 'open' && previous.url) {
-            return { url: previous.url };
+        // Pay pressed twice, or Continue to payment: hand back the same session — confirmed
+        // empirically that client_secret survives a retrieve, not just the original create
+        if(previous.status === 'open' && previous.client_secret) {
+            return { client_secret: previous.client_secret };
         }
 
         if(previous.status === 'open') {
@@ -287,10 +292,9 @@ async function createCheckout(cartId, trx = db) {
     let session;
 
     try {
-        session = await StripeService.createCheckoutSession({
+        session = await StripeService.createEmbeddedCheckoutSession({
             lineItems,
-            successUrl: `${storefrontUrl}/order/complete?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${storefrontUrl}/cart?checkout=cancelled`,
+            returnUrl: `${storefrontUrl}/order/complete?session_id={CHECKOUT_SESSION_ID}`,
             clientReferenceId: cart.id,
             metadata: { cart_id: cart.id },
             automaticTax: process.env.STRIPE_AUTOMATIC_TAX === 'true',
@@ -312,7 +316,7 @@ async function createCheckout(cartId, trx = db) {
         updated_at: trx.fn.now()
     });
 
-    return { url: session.url };
+    return { client_secret: session.client_secret };
 }
 
 
@@ -349,7 +353,7 @@ export async function completeCartFromSession(session) {
         return { handled: false };
     }
 
-    return db.transaction(async (trx) => {
+    const result = await db.transaction(async (trx) => {
         await trx.raw('SELECT set_config(?, ?, true)', ['app.current_tenant_id', tenantId]);
 
         // Found by independent QA review: onPreHandler's suspended-tenant check (T035) only
@@ -360,7 +364,7 @@ export async function completeCartFromSession(session) {
         // payment itself was already authorized by Stripe by this point either way — this
         // can't un-charge the customer — so this only controls whether OUR record of it
         // completes, not whether money moved.
-        const tenant = await trx('tenants').where({ id: tenantId }).first('status');
+        const tenant = await trx('tenants').where({ id: tenantId }).first('status', 'name', 'timezone');
 
         if(tenant?.status === 'suspended') {
             global.logger.error('Checkout: paid session for a suspended tenant, not completing', {
@@ -391,6 +395,7 @@ export async function completeCartFromSession(session) {
         const details = session.customer_details || {};
         const address = details.address || {};
         const [firstName, ...rest] = (details.name || '').trim().split(/\s+/);
+        const salesTax = session.total_details?.amount_tax ?? 0;
         const billing = {
             billing_firstName: firstName || null,
             billing_lastName: rest.join(' ') || null,
@@ -401,6 +406,7 @@ export async function completeCartFromSession(session) {
             billing_postalCode: address.postal_code || null,
             billing_countryCodeAlpha2: address.country || null,
             billing_phone: details.phone || null,
+            billing_email: details.email || null,
         };
 
         const serverCart = await CartSvc.fetchOne({ where: { id: cartId }, trx });
@@ -417,20 +423,65 @@ export async function completeCartFromSession(session) {
             });
         }
 
+        const { code: pickupCode, date: pickupCodeDate } = await allocatePickupCode(tenantId, tenant.timezone, trx);
+
         await trx('carts').where({ id: cartId }).whereNull('closed_at').update({
             ...billing,
-            sales_tax: session.total_details?.amount_tax ?? 0,
+            sales_tax: salesTax,
             currency: session.currency || cart.currency,
             stripe_payment_intent_id: typeof session.payment_intent === 'string'
                 ? session.payment_intent
                 : session.payment_intent?.id || null,
             stripe_order_id: session.id,
+            pickup_code: pickupCode,
+            pickup_code_date: pickupCodeDate,
             closed_at: trx.fn.now(),
+            // Kitchen Display System: a cart only becomes a kitchen "ticket" once paid, set
+            // here alongside closed_at/pickup_code rather than defaulted at the column level
+            // (20261102120000_kitchen_status.js) — kitchen_status IS NOT NULL is the kanban
+            // board's own filter, so historical pre-feature carts are correctly left out of it.
+            kitchen_status: 'queued',
+            kitchen_status_updated_at: trx.fn.now(),
             updated_at: trx.fn.now()
         });
 
         ServiceStream.publish(tenantId);
 
-        return { handled: true, cartId };
+        // Gathered here, inside the transaction, so the actual Postmark call below can happen
+        // entirely after commit without any further tenant-scoped reads (RLS tenant context is
+        // transaction-local — see set_config's `true` third arg above — so it's gone once this
+        // transaction ends).
+        return {
+            handled: true,
+            cartId,
+            receipt: billing.billing_email ? {
+                tenantName: tenant.name,
+                billingEmail: billing.billing_email,
+                pickupCode,
+                currency: session.currency || cart.currency,
+                items: (serverCart?.cart_items || []).map((item) => ({
+                    name: item.product?.title || 'Item',
+                    quantity: item.qty,
+                    price: item.price_subtotal || 0
+                })),
+                subtotal: serverCart?.price_subtotal || 0,
+                tax: salesTax,
+                total: (serverCart?.price_subtotal || 0) + salesTax
+            } : null
+        };
     });
+
+    if(result.receipt) {
+        try {
+            await sendReceiptEmail(result.receipt);
+        }
+        catch(err) {
+            // The order is already recorded — a failed receipt email must not fail the
+            // webhook ack (Stripe would otherwise retry the whole event, re-running completion
+            // logic that already succeeded) or undo the completed order.
+            global.logger.error(err, { meta: { session_id: session.id, cart_id: result.cartId } });
+        }
+    }
+
+    return result;
 }
