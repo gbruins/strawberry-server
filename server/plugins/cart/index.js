@@ -133,7 +133,11 @@ export const cartPlugin = {
                     auth: {
                         strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
+                    // The note is independent of what's already fixed in the Stripe session
+                    // (unlike quantity/item changes), so it stays editable while checkout is in
+                    // progress — the storefront keeps the field visible on that screen precisely
+                    // so a visitor who never saw the unlocked cart still has a way to leave one.
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     ext: { onPreResponse: { method: redactCartForStore } },
                     validate: {
                         payload: Joi.object({
