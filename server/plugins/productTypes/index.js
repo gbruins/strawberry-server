@@ -63,11 +63,7 @@ export const productTypesPlugin = {
                     validate: {
                         payload: Joi.object({
                             ...Ctrl.service.getValidationSchemaForUpdateOrdinals()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
+                        })
                     },
                     handler: (request, h) => {
                         return Ctrl.bulkUpdateOrdinalsHandler(request, h);

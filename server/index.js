@@ -180,21 +180,6 @@ export async function init() {
         }
     });
 
-    // server.dependency(
-    //     [],
-    //     function (server) {
-    //         // serverExtensions(server);
-    //         // cartRoutes(server);
-    //         addressDiscountRoutes(server);
-    //         allowedStreetRoutes(server);
-    //         authRoutes(server);
-    //         productRoutes(server);
-    //         productTypeRoutes(server);
-    //         serviceRoutes(server);
-    //         serviceMenuRoutes(server);
-    //     }
-    // );
-
     // Required even for tests that only use server.inject() and never call .start(): several
     // plugins (hapi-rate-limit's internal catbox cache, at least) only connect their backing
     // cache on initialize(), not on registration — without this, inject() throws "Disconnected"

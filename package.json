@@ -39,7 +39,6 @@
         "json5": "2.2.3",
         "knex": "3.1.0",
         "knex-paginate": "3.2.0",
-        "lodash.clonedeep": "4.5.0",
         "lodash.isobject": "3.0.2",
         "lodash.isstring": "4.0.1",
         "lodash.merge": "4.6.2",

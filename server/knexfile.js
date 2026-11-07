@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import cloneDeep from 'lodash.clonedeep';
 const isProd = process.env.NODE_ENV === 'production';
 // Supabase vars take priority when set (specs/004-multi-tenant-supabase); DB_* vars remain as
 // the legacy self-hosted Postgres fallback for any environment that hasn't been cut over yet.
@@ -49,11 +48,4 @@ const common = {
     debug: !isProd
 };
 
-const config = {
-    development: cloneDeep(common),
-    production: cloneDeep(common)
-};
-
-const env = isProd ? 'production' : 'development';
-
-export default config[env];
+export default common;
