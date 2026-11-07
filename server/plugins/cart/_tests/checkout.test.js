@@ -1,7 +1,7 @@
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import { init } from '../../../index.js';
-import { createTestTenant, ownerQuery } from '../../../utils/testHelpers.js';
+import { addProductType, createTestTenant, ownerQuery } from '../../../utils/testHelpers.js';
 import db from '../../../db/knex.js';
 
 export const lab = Lab.script();
@@ -52,7 +52,8 @@ describe('POST /api/v1/cart/checkout', () => {
             tenant_id: tenant.tenantId,
             title: 'Test Pizza',
             published: true,
-            base_price: 1500
+            base_price: 1500,
+            product_type: await addProductType(tenant.tenantId, { name: 'Other', slug: 'other' })
         }).returning('*');
 
         const [menu] = await ownerQuery('service_menus').insert({

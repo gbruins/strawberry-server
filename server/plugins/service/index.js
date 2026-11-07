@@ -1,3 +1,4 @@
+import Joi from 'joi';
 import ServiceController from './ServiceController.js';
 import {
     getGenericConfig_SEARCH,
@@ -76,7 +77,40 @@ export const servicePlugin = {
                 options: {
                     description: 'Deletes a service'
                 }
-            })
+            }),
+
+            {
+                method: 'GET',
+                path: '/service/availability',
+                handler: (request, h) => Ctrl.getAvailabilityHandler(request, h),
+                options: {
+                    description: 'Gets the service\'s menu products and whether each is in stock for this service',
+                    auth: {
+                        strategies: ['adminBearer']
+                    },
+                    validate: {
+                        query: Joi.object({ id: Joi.string().uuid().required() })
+                    }
+                }
+            },
+
+            {
+                method: 'PUT',
+                path: '/service/availability',
+                handler: (request, h) => Ctrl.setAvailabilityHandler(request, h),
+                options: {
+                    description: 'Sets which menu products are out of stock for this service',
+                    auth: {
+                        strategies: ['adminBearer']
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            id: Joi.string().uuid().required(),
+                            unavailable_product_ids: Joi.array().items(Joi.string().uuid()).required()
+                        })
+                    }
+                }
+            }
         ]);
     }
 };

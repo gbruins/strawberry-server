@@ -2,6 +2,7 @@ import BaseController from '../base/BaseController.js';
 import ServiceService from './ServiceService.js';
 import { buildState } from './ServiceState.js';
 import { signStorefrontRealtimeToken } from './realtimeToken.js';
+import { getServiceAvailability, setServiceUnavailable } from './ServiceAvailability.js';
 
 export default class ServiceController extends BaseController {
 
@@ -35,6 +36,20 @@ export default class ServiceController extends BaseController {
         }
 
         return h.apiSuccess({ realtime_jwt: realtimeJwt, tenant_id: tenantId });
+    }
+
+
+
+    async getAvailabilityHandler(request, h) {
+        const products = await getServiceAvailability(request.query.id, request.app.trx);
+        return h.apiSuccess(products);
+    }
+
+
+    async setAvailabilityHandler(request, h) {
+        const { id, unavailable_product_ids } = request.payload;
+        const products = await setServiceUnavailable(id, unavailable_product_ids, request.app.trx, request.app.tenantId);
+        return h.apiSuccess(products);
     }
 
 }

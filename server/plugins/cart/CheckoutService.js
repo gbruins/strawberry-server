@@ -4,6 +4,7 @@ import StripeService from '../stripe/StripeService.js';
 import db from '../../db/knex.js';
 import Boom from '@hapi/boom';
 import { touchServiceActivity } from '../service/ServiceActivity.js';
+import { getOfferedProductIds, itemUnavailable } from '../service/ServiceAvailability.js';
 import { allocatePickupCode } from './PickupCodeService.js';
 import { sendReceiptEmail } from '../notifications/NotificationService.js';
 import {
@@ -168,14 +169,6 @@ function getStorefrontUrl() {
  *
  * @returns {Promise<{ client_secret: string }>}
  */
-const itemUnavailable = (productId, title) => {
-    return Boom.conflict(`"${title || 'An item'}" is no longer available`, {
-        code: 'item_unavailable',
-        product_id: productId || null,
-        title: title || null
-    });
-};
-
 export function createCheckoutForCart(cartId, trx) {
     return createCheckout(cartId, trx);
 }
@@ -203,18 +196,9 @@ async function createCheckout(cartId, trx = db) {
         throw Boom.badRequest('Cart is empty');
     }
 
-    // Product ids offered by the service's current published menu (FR-008a)
-    let offeredIds = null;
-    if(cart.service_id) {
-        const offered = await trx('service as s')
-            .join('service_menus as m', 'm.id', 's.service_menu_id')
-            .join('service_menu_products as smp', 'smp.service_menu_id', 'm.id')
-            .where('s.id', cart.service_id)
-            .where('m.published', true)
-            .whereNull('m.deleted_at')
-            .select('smp.product_id');
-        offeredIds = new Set(offered.map((row) => row.product_id));
-    }
+    // Product ids offered by the service's current published menu (FR-008a), minus the
+    // ones marked out of stock for this service
+    const offeredIds = cart.service_id ? await getOfferedProductIds(cart.service_id, trx) : null;
 
     const lineItems = [];
 

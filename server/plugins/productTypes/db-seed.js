@@ -1,48 +1,13 @@
 import { tableName } from './ProductTypeModel.js';
+import { ensureBuiltInProductTypes } from './builtInProductTypes.js';
 
-function seed(knex, tenantId) {
-    return knex(tableName)
-        .where({ tenant_id: tenantId })
-        .del()
-        // .then(() => {
-        //     return knex.raw(`ALTER SEQUENCE ${tableName}_id_seq RESTART WITH 1`);
-        // })
-        .then(
-            () => {
-                const promises = [];
-
-                const sampleData = {
-                    product_type: [
-                        { name: 'Pizza', slug: 'pizza', description: 'pizza description' }
-                    ]
-                };
-
-                for(const key in sampleData) {
-                    const fibs = [];
-
-                    sampleData[key].forEach((obj, index) => {
-                        const fibonacci = index === 0 ? 1 : fibs[index-1] * 2
-                        fibs.push(fibonacci);
-
-                        promises.push(
-                            knex(tableName).insert({
-                                published: true,
-                                ...obj,
-                                value: fibonacci,
-                                metadata: JSON.stringify([
-                                    obj.metadata || {"property":"sample","value":"meta data"}
-                                ]),
-                                ordinal: index + 1,
-                                tenant_id: tenantId
-                            })
-                        )
-                    })
-                }
-
-                return Promise.all(promises);
-            }
-        );
-};
+/**
+ * Resets the tenant's product types to just the built-in ones (Pizza).
+ */
+async function seed(knex, tenantId) {
+    await knex(tableName).where({ tenant_id: tenantId }).del();
+    await ensureBuiltInProductTypes(knex, tenantId);
+}
 
 
 export default {

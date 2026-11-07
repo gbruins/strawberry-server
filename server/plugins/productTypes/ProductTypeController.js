@@ -40,11 +40,7 @@ export default class ProductTypeController extends BaseController {
                 meta: request.payload
             });
 
-            const ProductType = await this.service.update({
-                data: request.payload,
-                where: { id: request.payload.id },
-                trx: request.app.trx
-             });
+            const ProductType = await this.service.updateProductType(request.payload, request.app.trx);
 
             global.logger.info('RESPONSE: ProductTypeController.updateProductTypeHandler', {
                 meta: ProductType
@@ -60,6 +56,14 @@ export default class ProductTypeController extends BaseController {
             global.logger.error(err);
             throw Boom.badImplementation();
         }
+    }
+
+
+    async deleteHandler(request, h) {
+        // Built-in types and types still used by products cannot be deleted
+        await this.service.assertCanDelete(request.query.id, request.app.trx);
+
+        return super.deleteHandler(request, h);
     }
 
 }

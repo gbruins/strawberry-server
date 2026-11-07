@@ -13,6 +13,7 @@ import {
     isPizzaProduct,
     limitError
 } from '../service/ServiceStock.js';
+import { assertProductOrderable } from '../service/ServiceAvailability.js';
 
 export default class CartItemService extends BaseService {
 
@@ -23,12 +24,15 @@ export default class CartItemService extends BaseService {
 
 
     /**
-     * Makes sure the cart belongs to a service that is open right now, and that
-     * the pizzas in the cart (with `newQty` of the given product) stay within the
-     * per-order cap and the stock. Only pizzas are limited. Attaches the cart to
-     * the open service on its first item.
+     * Makes sure the cart belongs to a service that is open right now, that the product is
+     * on that service's menu and in stock, and that the pizzas in the cart (with `newQty` of
+     * the given product) stay within the per-order cap and the stock. Only pizzas are limited.
+     * Attaches the cart to the open service on its first item.
+     *
+     * @param product  `{ id, title }`
      */
-    async assertWithinLimits(cart, productId, newQty, trx = db) {
+    async assertWithinLimits(cart, product, newQty, trx = db) {
+        const productId = product?.id;
         const now = new Date();
         let service;
 
@@ -46,6 +50,8 @@ export default class CartItemService extends BaseService {
                 throw limitError(Boom, 'no_open_service');
             }
         }
+
+        await assertProductOrderable(service.id, product, trx);
 
         if(await isPizzaProduct(productId, trx)) {
             const others = await countCartPizzas(cart.id, { excludeProductId: productId }, trx);
@@ -109,7 +115,7 @@ export default class CartItemService extends BaseService {
             const quantity = parseInt(data.qty, 10);
             const newQty = existingCartItem?.qty ? parseInt(existingCartItem.qty, 10) + quantity : quantity;
 
-            await this.assertWithinLimits(Cart, Product.id, newQty, trx);
+            await this.assertWithinLimits(Cart, Product, newQty, trx);
 
             return this.upsertOne({
                 data: {
@@ -154,7 +160,7 @@ export default class CartItemService extends BaseService {
         // Lowering a quantity is always allowed
         if(newQty > (CartItem.qty || 0)) {
             const cart = await trx('carts').where({ id: CartItem.cart_id }).first();
-            await this.assertWithinLimits(cart, CartItem.product?.id, newQty, trx);
+            await this.assertWithinLimits(cart, CartItem.product, newQty, trx);
         }
 
         // Update the CartItem qty value

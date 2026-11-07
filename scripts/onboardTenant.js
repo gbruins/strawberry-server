@@ -6,6 +6,7 @@ import knexLib from 'knex';
 import { createClient } from '@supabase/supabase-js';
 import knexConfig from '../server/knexfile.js';
 import { sha256Hex } from '../server/utils/utils.js';
+import { ensureBuiltInProductTypes } from '../server/plugins/productTypes/builtInProductTypes.js';
 
 // Runs as the owner/superuser (knexfile.js's connection) — same as migrations/makeApiKey.js —
 // since admin_users/tenant_api_keys only grant the restricted app role SELECT, not INSERT.
@@ -13,7 +14,8 @@ const db = knexLib(knexConfig);
 
 /**
  * Onboards one new tenant: creates its `tenants` row, invites its owner via Supabase Auth,
- * creates the matching `admin_users` row, and issues one storefront API key.
+ * creates the matching `admin_users` row, seeds the built-in product types, and issues one
+ * storefront API key.
  *
  * `supabaseAdmin` is injected (rather than constructed in here) so tests can pass a stub that
  * doesn't need a real SUPABASE_SERVICE_ROLE_KEY or send a real email.
@@ -22,6 +24,9 @@ export async function onboardTenant({ name, timezone, email, supabaseAdmin, admi
     const [tenant] = await db('tenants').insert({ name, timezone }).returning('*');
 
     try {
+        // Pizza is required for the per-order cap and inventory to apply to anything
+        await ensureBuiltInProductTypes(db, tenant.id);
+
         // The route's vue-router *name* is 'reset_password' (underscore); its actual URL path
         // is '/reset-password' (hyphen, strawberry-admin/src/router/index.ts) — found by QA
         // review confirming every real invite link would otherwise 404 with no fallback route.
@@ -60,6 +65,7 @@ export async function onboardTenant({ name, timezone, email, supabaseAdmin, admi
         // no error pointing at the orphan for staff to find).
         await db('tenant_api_keys').where({ tenant_id: tenant.id }).del();
         await db('admin_users').where({ tenant_id: tenant.id }).del();
+        await db('product_types').where({ tenant_id: tenant.id }).del();
         await db('tenants').where({ id: tenant.id }).del();
         throw err;
     }
