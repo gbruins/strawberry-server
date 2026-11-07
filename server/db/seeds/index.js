@@ -1,5 +1,3 @@
-import address_discounts from '../../plugins/addressDiscounts/db-seed.js';
-import allowed_streets from '../../plugins/allowedStreets/db-seed.js';
 import product_types from '../../plugins/productTypes/db-seed.js';
 
 // NOTE: products should not be seeded because they also require Stripe setup
@@ -39,7 +37,5 @@ async function resolveSeedTenantId(knex) {
 export async function seed(knex, Promise) {
     const tenantId = await resolveSeedTenantId(knex);
 
-    await address_discounts.seed(knex, tenantId);
-    await allowed_streets.seed(knex, tenantId);
     await product_types.seed(knex, tenantId);
 };

@@ -1,4 +1,5 @@
-import { tableName } from '../../plugins/addressDiscounts/AddressDiscountModel.js';
+// Table dropped by 20261106150000_drop_allowed_streets_and_address_discounts.js
+const tableName = 'address_discounts';
 
 /**
  * @param { import("knex").Knex } knex

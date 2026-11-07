@@ -8,8 +8,6 @@ import HapiBasic from '@hapi/basic';
 import HapiRateLimit from 'hapi-rate-limit';
 import { serverExtensionsPlugin } from './plugins/serverExtensions/index.js';
 import { loggerPlugin } from './plugins/logger/index.js';
-import { addressDiscountPlugin } from './plugins/addressDiscounts/index.js';
-import { allowedStreetsPlugin } from './plugins/allowedStreets/index.js';
 import { authPlugin } from './plugins/auth/index.js';
 import { basePlugin } from './plugins/base/index.js';
 import { cartPlugin } from './plugins/cart/index.js';
@@ -104,22 +102,6 @@ export async function init() {
 
     await server.register({
         plugin: authPlugin,
-        options: {},
-        routes: {
-            prefix: apiPrefix
-        }
-    });
-
-    await server.register({
-        plugin: addressDiscountPlugin,
-        options: {},
-        routes: {
-            prefix: apiPrefix
-        }
-    });
-
-    await server.register({
-        plugin: allowedStreetsPlugin,
         options: {},
         routes: {
             prefix: apiPrefix
