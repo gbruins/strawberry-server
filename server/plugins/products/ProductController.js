@@ -84,8 +84,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(UpdatedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -187,8 +191,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(UpdatedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -242,8 +250,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(DeletedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 }

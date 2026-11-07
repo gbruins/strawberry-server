@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import Boom from '@hapi/boom';
 import ServiceModel from './ServiceModel.js';
 import BaseService from '../base/BaseService.js';
 import db from '../../db/knex.js';
@@ -55,7 +56,7 @@ export default class ServiceService extends BaseService {
         const conflict = await qb.first('id');
 
         if (conflict) {
-            throw new Error('This service window overlaps with an existing service');
+            throw Boom.badRequest('This service window overlaps with an existing service');
         }
     }
 

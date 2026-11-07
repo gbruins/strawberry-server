@@ -24,7 +24,7 @@ async function createProduct(config) {
         return product;
     }
     catch (error) {
-        console.error('Error creating Stripe product:', error);
+        global.logger.error('Error creating Stripe product:', error);
         throw error; // Re-throw for handling upstream
     }
 }
@@ -45,7 +45,7 @@ async function updateProduct(stripeProductId, updateData) {
         return product;
     }
     catch (error) {
-        console.error('Error updating Stripe product:', error);
+        global.logger.error('Error updating Stripe product:', error);
         throw error;
     }
 }
@@ -77,7 +77,7 @@ async function createPrice(config = {}) {
         return price;
     }
     catch (error) {
-        console.error('Error creating Stripe price:', error);
+        global.logger.error('Error creating Stripe price:', error);
         throw error;
     }
 }
@@ -101,7 +101,7 @@ async function updatePrice(stripePriceId, updateData) {
         return price;
     }
     catch (error) {
-        console.error('Error updating Stripe price:', error);
+        global.logger.error('Error updating Stripe price:', error);
         throw error;
     }
 }
@@ -139,15 +139,14 @@ async function findPricesByAmount({
             ...(productId && { product: productId }),
         };
 
-        const stipePrices = await stripe.prices.list(params)
-        console.log('STRIPEPRICES', stipePrices);
+        const stripePrices = await stripe.prices.list(params)
 
         // Use auto-pagination to handle >100 prices if needed
         const matchingPrices = [];
 
         // If filtering by unitAmount
         if (unitAmount) {
-            for (const price of stipePrices.data) {
+            for (const price of stripePrices.data) {
                 if (price.unit_amount === unitAmount) {
                     matchingPrices.push(price);
                 }
@@ -155,13 +154,13 @@ async function findPricesByAmount({
         }
         else {
             // If no unitAmount filter, return all fetched prices
-            matchingPrices.push(...stipePrices.data);
+            matchingPrices.push(...stripePrices.data);
         }
 
         return matchingPrices;
     }
     catch (error) {
-        console.error('Error finding prices by amount:', error);
+        global.logger.error('Error finding prices by amount:', error);
         throw error;
     }
 }
@@ -256,7 +255,7 @@ async function createCheckoutSession({
         return session;
     }
     catch (error) {
-        console.error('Error creating Checkout Session:', error);
+        global.logger.error('Error creating Checkout Session:', error);
         throw error;
     }
 }
@@ -312,7 +311,7 @@ async function createEmbeddedCheckoutSession({
         return session;
     }
     catch (error) {
-        console.error('Error creating embedded Checkout Session:', error);
+        global.logger.error('Error creating embedded Checkout Session:', error);
         throw error;
     }
 }
@@ -332,7 +331,7 @@ async function expireCheckoutSession(sessionId) {
     }
     catch (error) {
         // Expected when the session is already complete or expired
-        console.warn('Could not expire Checkout Session:', error.message);
+        global.logger.warn('Could not expire Checkout Session:', error.message);
     }
 }
 
@@ -367,7 +366,7 @@ async function createPaymentIntent({
         return paymentIntent;
     }
     catch (error) {
-        console.error('Error creating Payment Intent:', error);
+        global.logger.error('Error creating Payment Intent:', error);
         throw error;
     }
 }
@@ -391,7 +390,7 @@ function verifyWebhookEvent(payload, signature) {
         return event;
     }
     catch (error) {
-        console.error('Webhook signature verification failed:', error);
+        global.logger.error('Webhook signature verification failed:', error);
         throw error;
     }
 }

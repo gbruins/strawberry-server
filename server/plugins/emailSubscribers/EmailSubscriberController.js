@@ -29,8 +29,12 @@ export default class EmailSubscriberController extends BaseController {
             return h.apiSuccess({ subscribed: true });
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -47,8 +51,12 @@ export default class EmailSubscriberController extends BaseController {
             return h.apiSuccess({ activeCount: Number(count) });
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

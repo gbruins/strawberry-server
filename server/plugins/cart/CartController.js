@@ -39,8 +39,12 @@ export default class CartController extends BaseController {
             return h.apiSuccess(cart);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -72,8 +76,12 @@ export default class CartController extends BaseController {
             return h.apiSuccess(cart);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -114,7 +122,7 @@ export default class CartController extends BaseController {
             }
 
             global.logger.error(err);
-            throw Boom.badRequest(err.message);
+            throw Boom.badImplementation();
         }
     }
 
@@ -134,7 +142,7 @@ export default class CartController extends BaseController {
             }
 
             global.logger.error(err);
-            throw Boom.badRequest(err.message);
+            throw Boom.badImplementation();
         }
     }
 
@@ -147,8 +155,12 @@ export default class CartController extends BaseController {
             return h.apiSuccess(await cancelCheckout(request.payload.id, request.app.trx));
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err.message);
+            throw Boom.badImplementation();
         }
     }
 
@@ -190,7 +202,7 @@ export default class CartController extends BaseController {
             }
 
             global.logger.error(err);
-            throw Boom.badRequest(err.message);
+            throw Boom.badImplementation();
         }
     }
 

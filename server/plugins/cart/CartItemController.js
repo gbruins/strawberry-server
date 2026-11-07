@@ -28,7 +28,7 @@ export default class CartItemController extends BaseController {
             }
 
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -53,8 +53,7 @@ export default class CartItemController extends BaseController {
             }
 
             global.logger.error(err);
-            global.bugsnag(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

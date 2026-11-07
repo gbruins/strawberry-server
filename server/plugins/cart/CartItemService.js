@@ -87,7 +87,7 @@ export default class CartItemService extends BaseService {
             // Fetch or create the Cart
             const Cart = await CartSvc.getOrCreateCart(data.cart_id, trx, tenantId);
             if(!Cart) {
-                throw new Error('Cart does not exist');
+                throw Boom.notFound('Cart does not exist');
             }
 
             // Fetch the Product
@@ -96,7 +96,7 @@ export default class CartItemService extends BaseService {
                 trx
             });
             if(!Product) {
-                throw new Error('Product does not exist');
+                throw Boom.notFound('Product does not exist');
             }
 
             // To prevent duplicate cart items being added to the cart:
@@ -127,7 +127,7 @@ export default class CartItemService extends BaseService {
                 throw err;
             }
 
-            console.error(err);
+            global.logger.error(err);
             throw new Error(err.message);
         }
     }
@@ -146,7 +146,7 @@ export default class CartItemService extends BaseService {
         });
 
         if(!CartItem) {
-            throw new Error('CartItem does not exist');
+            throw Boom.notFound('CartItem does not exist');
         }
 
         const newQty = parseInt(qty, 10);

@@ -84,8 +84,12 @@ export default class NotificationController {
             return h.apiSuccess({ sent: true, recipientCount: successCount });
         }
         catch (err) {
+            if (err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.isBoom(err) ? err : Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

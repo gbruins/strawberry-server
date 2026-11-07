@@ -172,15 +172,11 @@ describe('Admin subscriber management', () => {
         const listRes = await server.inject({ method: 'GET', url: '/api/v1/subscribers', auth: adminAuth(tenantB.tenantId) });
         expect(listRes.result.data.some((r) => r.id === row.id)).to.equal(false);
 
-        // 400, not 404: BaseController.deleteHandler's throwIfNotFound() does throw a genuine
-        // Boom.notFound() when RLS makes the row invisible (confirmed directly — its message is
-        // "Not Found"), but the handler's own outer catch block re-wraps every caught error,
-        // that one included, into Boom.badRequest() — a pre-existing characteristic of every
-        // admin update/delete route built on BaseController, not something specific to this
-        // plugin. The storefront's 404 convention (storeVisibility.js) is a different code path
-        // that bypasses BaseController entirely.
+        // 404: BaseController.deleteHandler's throwIfNotFound() throws a genuine Boom.notFound()
+        // when RLS makes the row invisible to Tenant B — the outer catch block now rethrows any
+        // Boom error as-is instead of flattening every caught error into a 400.
         const deleteRes = await server.inject({ method: 'DELETE', url: `/api/v1/subscriber?id=${row.id}`, auth: adminAuth(tenantB.tenantId) });
-        expect(deleteRes.statusCode).to.equal(400);
+        expect(deleteRes.statusCode).to.equal(404);
 
         const stillSubscribed = await ownerQuery('email_subscribers').where({ id: row.id }).first();
         expect(stillSubscribed.status).to.equal('subscribed');
