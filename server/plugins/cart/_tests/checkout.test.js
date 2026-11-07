@@ -121,4 +121,27 @@ describe('POST /api/v1/cart/checkout', () => {
         expect(second.statusCode).to.equal(200);
         expect(second.result.data.client_secret).to.equal(first.result.data.client_secret);
     });
+
+    // Exercises createCheckout's pg_advisory_xact_lock directly: two `server.inject()` calls
+    // each open their own real transaction/connection (same as two separate server instances
+    // would), so firing them together via Promise.all is genuine cross-connection DB
+    // concurrency, not just two sequential in-process calls. Without the lock serializing them,
+    // both could read the cart's stripe_order_id as null before either writes it and each
+    // create its own Stripe session — a real double-session bug, not a hypothetical one.
+    it('serializes two simultaneous checkout requests for the same cart into a single session', { timeout: 20000 }, async () => {
+        const { cartId, cartToken } = await createCartWithItem();
+        const headers = { ...authHeader(tenant.apiKey), 'x-cart-token': cartToken };
+
+        const [first, second] = await Promise.all([
+            server.inject({ method: 'POST', url: '/api/v1/cart/checkout', headers, payload: { id: cartId } }),
+            server.inject({ method: 'POST', url: '/api/v1/cart/checkout', headers, payload: { id: cartId } })
+        ]);
+
+        expect(first.statusCode).to.equal(200);
+        expect(second.statusCode).to.equal(200);
+        expect(second.result.data.client_secret).to.equal(first.result.data.client_secret);
+
+        const cart = await ownerQuery('carts').where({ id: cartId }).first();
+        expect(cart.stripe_order_id).to.startWith('cs_test_');
+    });
 });

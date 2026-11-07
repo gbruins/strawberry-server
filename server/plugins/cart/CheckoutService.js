@@ -168,27 +168,6 @@ function getStorefrontUrl() {
  *
  * @returns {Promise<{ client_secret: string }>}
  */
-const checkoutLocks = new Map();
-
-// Serializes checkout creation per cart so two simultaneous requests cannot both create a
-// payable session. In-process, like the service stream; multi-instance needs a database lock.
-async function withCartLock(cartId, fn) {
-    const previous = checkoutLocks.get(cartId) || Promise.resolve();
-    const current = previous.catch(() => {}).then(fn);
-    const tail = current.catch(() => {});
-
-    checkoutLocks.set(cartId, tail);
-
-    try {
-        return await current;
-    }
-    finally {
-        if(checkoutLocks.get(cartId) === tail) {
-            checkoutLocks.delete(cartId);
-        }
-    }
-}
-
 const itemUnavailable = (productId, title) => {
     return Boom.conflict(`"${title || 'An item'}" is no longer available`, {
         code: 'item_unavailable',
@@ -198,19 +177,30 @@ const itemUnavailable = (productId, title) => {
 };
 
 export function createCheckoutForCart(cartId, trx) {
-    return withCartLock(cartId, () => createCheckout(cartId, trx));
+    return createCheckout(cartId, trx);
 }
 
 async function createCheckout(cartId, trx = db) {
+    // Serializes checkout creation per cart so two simultaneous requests can never both create
+    // a payable session for it — a Postgres transaction-scoped advisory lock on `trx` (the
+    // ambient request transaction opened in serverExtensions' onPreHandler and committed/rolled
+    // back in its onPreResponse, which already wraps this entire function including the Stripe
+    // call below), not an in-process mutex: it works across every server instance, and is
+    // released automatically on that transaction's commit OR rollback, so a thrown error or a
+    // crash can never leave it held. hashtextextended hashes the cart's UUID down to the bigint
+    // key pg_advisory_xact_lock needs; a hash collision between two different carts would only
+    // ever serialize their checkouts against each other, never produce incorrect behavior.
+    await trx.raw('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [cartId]);
+
     const cart = await CartSvc.fetchOne({ where: { id: cartId }, trx });
 
     if(!cart || cart.closed_at) {
-        throw new Error('Cart is not available for checkout');
+        throw Boom.conflict('Cart is not available for checkout');
     }
 
     const cartItems = (cart.cart_items || []).filter((item) => item.qty > 0);
     if(!cartItems.length) {
-        throw new Error('Cart is empty');
+        throw Boom.badRequest('Cart is empty');
     }
 
     // Product ids offered by the service's current published menu (FR-008a)
@@ -256,7 +246,7 @@ async function createCheckout(cartId, trx = db) {
             });
         }
         else {
-            throw new Error(`"${product.title}" has no price`);
+            throw Boom.conflict(`"${product.title}" has no price`, { code: 'item_unavailable', product_id: product.id, title: product.title });
         }
     }
 
@@ -265,7 +255,7 @@ async function createCheckout(cartId, trx = db) {
         const previous = await StripeService.retrieveCheckoutSession(cart.stripe_order_id);
 
         if(previous.status === 'complete') {
-            throw new Error('A payment for this cart is already being processed');
+            throw Boom.conflict('A payment for this cart is already being processed');
         }
 
         // Pay pressed twice, or Continue to payment: hand back the same session — confirmed
