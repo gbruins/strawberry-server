@@ -20,7 +20,7 @@ const CartSvc = new CartService();
  */
 export function requireCartAccess(getCartId, { mutates = false, allowDuringCheckout = false } = {}) {
     return async (request, h) => {
-        if(request.auth.strategy === 'adminCookie') {
+        if(request.auth.strategy === 'adminBearer') {
             return h.continue;
         }
 
@@ -32,7 +32,8 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
 
         let { exists, valid, closed, checkoutSessionId } = await CartSvc.checkToken(
             cartId,
-            request.headers[CART_TOKEN_HEADER]
+            request.headers[CART_TOKEN_HEADER],
+            request.app.trx
         );
 
         // Same response for a missing cart and a bad token so cart IDs can't be probed
@@ -40,7 +41,7 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
             throw Boom.notFound();
         }
 
-        if(exists && valid && !closed && await CartSvc.resetIfServiceEnded(cartId)) {
+        if(exists && valid && !closed && await CartSvc.resetIfServiceEnded(cartId, new Date(), request.app.trx)) {
             request.app.cartReset = 'service_ended';
             checkoutSessionId = null;
         }
@@ -53,7 +54,7 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
             let inProgress;
 
             try {
-                inProgress = await isCheckoutInProgress(cartId, checkoutSessionId);
+                inProgress = await isCheckoutInProgress(cartId, checkoutSessionId, request.app.trx);
             }
             catch(err) {
                 global.logger.error(err);
@@ -70,7 +71,7 @@ export function requireCartAccess(getCartId, { mutates = false, allowDuringCheck
 }
 
 
-const isAdmin = (request) => request.auth.strategy === 'adminCookie';
+const isAdmin = (request) => request.auth.strategy === 'adminBearer';
 
 /**
  * Store (API key) callers may only write the customer-supplied billing details.
@@ -124,8 +125,8 @@ export function redactCartForStore(request, h) {
 }
 
 
-export async function getCartIdForItem(itemId) {
-    const row = await db
+export async function getCartIdForItem(itemId, trx = db) {
+    const row = await trx
         .select('cart_id')
         .from('cart_items')
         .where({ id: itemId })

@@ -18,7 +18,7 @@ export const serviceMenuPlugin = {
                 path: '/service_menus',
                 options: {
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                 }
             }),
@@ -27,7 +27,7 @@ export const serviceMenuPlugin = {
                 path: '/service_menu',
                 options: {
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                 }
             }),
@@ -38,7 +38,7 @@ export const serviceMenuPlugin = {
                 handler: (request, h) => Ctrl.getProductsHandler(request, h),
                 options: {
                     description: 'Gets the products on a menu in display order',
-                    auth: { strategies: ['apiKey', 'adminCookie'] },
+                    auth: { strategies: ['apiKey', 'adminBearer'] },
                     validate: { query: ServiceMenuController.idQuery }
                 }
             },

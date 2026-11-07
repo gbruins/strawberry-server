@@ -3,7 +3,7 @@ import ProductService from './ProductService.js';
 
 const ProductSvc = new ProductService();
 
-const isAdmin = (request) => request.auth.strategy === 'adminCookie';
+const isAdmin = (request) => request.auth.strategy === 'adminBearer';
 
 /**
  * Store (API key) callers only ever see published products in lists.
@@ -28,7 +28,8 @@ export async function publishedByIdForStore(request, h) {
 
     const product = await ProductSvc.fetchOne({
         where: { id: request.query.id },
-        fetchRelations: false
+        fetchRelations: false,
+        trx: request.app.trx
     });
 
     if(!product?.published) {

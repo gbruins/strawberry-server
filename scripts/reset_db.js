@@ -2,20 +2,12 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { Client } from 'pg';
+import knexConfig from '../server/knexfile.js';
 
-const {
-  DB_HOST,
-  DB_NAME,
-  DB_USER,
-  DB_PASS
-} = process.env;
-
-const client = new Client({
-  host: DB_HOST,
-  database: DB_NAME,
-  user: DB_USER,
-  password: DB_PASS,
-});
+// Reuses knexfile.js's own connection config (host/ssl/etc.) rather than reading DB_* env vars
+// directly, so this script targets whichever database (Supabase or legacy local Postgres) the
+// rest of the app is actually configured to use.
+const client = new Client(knexConfig.connection);
 
 async function resetDatabase() {
   await client.connect();

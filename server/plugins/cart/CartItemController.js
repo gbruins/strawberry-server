@@ -14,7 +14,7 @@ export default class CartItemController extends BaseController {
                 meta: request.payload
             });
 
-            const Cart = await this.service.createCartItem(request.payload);
+            const Cart = await this.service.createCartItem(request.payload, request.app.trx, request.app.tenantId);
 
             global.logger.info('RESPONSE: CartItemController.createHandler', {
                 meta: Cart
@@ -28,7 +28,7 @@ export default class CartItemController extends BaseController {
             }
 
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -39,7 +39,7 @@ export default class CartItemController extends BaseController {
                 meta: request.payload
             });
 
-            const Cart = await this.service.updateCartItem(request.payload.id, request.payload.qty);
+            const Cart = await this.service.updateCartItem(request.payload.id, request.payload.qty, request.app.trx);
 
             global.logger.info('RESPONSE: CartItemController.updateHandler', {
                 meta: Cart
@@ -53,8 +53,7 @@ export default class CartItemController extends BaseController {
             }
 
             global.logger.error(err);
-            global.bugsnag(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

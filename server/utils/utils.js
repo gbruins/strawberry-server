@@ -1,4 +1,18 @@
+import crypto from 'crypto';
 import accounting from 'accounting';
+
+
+/**
+ * Fast, deterministic hash for looking up a high-entropy random token (an API key, not a
+ * password) by equality instead of looping over every candidate with a slow compare. Plain
+ * SHA-256 is adequate here specifically because the input already has enough entropy that
+ * brute-forcing it is infeasible regardless of hash speed — the usual reason to prefer a slow
+ * hash (resisting brute force over a small input space, e.g. human-memorable passwords)
+ * doesn't apply.
+ */
+export function sha256Hex(value) {
+    return crypto.createHash('sha256').update(value).digest('hex');
+}
 
 
 export function makeArray(val) {

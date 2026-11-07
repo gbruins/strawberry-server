@@ -1,9 +1,7 @@
 import BaseController from '../base/BaseController.js';
 import ServiceService from './ServiceService.js';
-import Boom from '@hapi/boom';
 import { buildState } from './ServiceState.js';
-import ServiceStream from './ServiceStream.js';
-import { getClientIp } from '../../utils/clientIp.js';
+import { signStorefrontRealtimeToken } from './realtimeToken.js';
 
 export default class ServiceController extends BaseController {
 
@@ -13,27 +11,30 @@ export default class ServiceController extends BaseController {
 
 
     async nextHandler(request, h) {
-        const state = await buildState();
+        const state = await buildState(new Date(), request.app.trx, request.app.tenantId);
         return h.apiSuccess(state);
     }
 
 
-    async streamHandler(request, h) {
-        const ip = getClientIp(request);
-        const stream = await ServiceStream.subscribe(ip);
+    /**
+     * POST /services/next/realtime-token — mints the short-lived Realtime JWT the storefront
+     * presents via `realtime.setAuth(token)` to watch its own tenant's `tenant_service_activity`
+     * row (see ServiceActivity.js). A missing/misconfigured SUPABASE_JWT_SECRET degrades to
+     * `realtime_jwt: null` rather than failing the request — the client falls back to polling
+     * GET /services/next, same graceful-degradation shape as the kitchen board's login.
+     */
+    async realtimeTokenHandler(request, h) {
+        const tenantId = request.app.tenantId;
 
-        if(!stream) {
-            throw Boom.tooManyRequests('Too many open streams');
+        let realtimeJwt = null;
+        try {
+            realtimeJwt = await signStorefrontRealtimeToken({ tenantId });
+        }
+        catch (err) {
+            global.logger.error(err, { meta: { tenantId } });
         }
 
-        request.raw.res.on('close', () => stream.destroy());
-
-        return h.response(stream)
-            .type('text/event-stream')
-            .header('Cache-Control', 'no-cache')
-            .header('Connection', 'keep-alive')
-            .header('X-Accel-Buffering', 'no')
-            .header('Content-Encoding', 'identity');
+        return h.apiSuccess({ realtime_jwt: realtimeJwt, tenant_id: tenantId });
     }
 
 }

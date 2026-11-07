@@ -24,8 +24,12 @@ export default class StripeController {
             return h.apiSuccess(response);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -45,8 +49,12 @@ export default class StripeController {
             return h.apiSuccess(response);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -69,8 +77,12 @@ export default class StripeController {
             return h.apiSuccess(response);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -90,8 +102,12 @@ export default class StripeController {
             return h.apiSuccess(response);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

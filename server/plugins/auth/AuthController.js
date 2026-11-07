@@ -8,60 +8,30 @@ export default class AuthController extends BaseController {
         super(new AuthService());
     }
 
-    loginHandler(request, h) {
-        global.logger.info('REQUEST: AuthController.loginHandler', {
-            meta: {
-                username: request.payload?.username
-            }
-        });
-
+    /**
+     * GET /admin/me (contracts/admin-auth.md) — tells strawberry-admin which tenant/role the
+     * caller's bearer token resolved to. Login/logout themselves are no longer server routes:
+     * strawberry-admin calls Supabase Auth directly for those (research.md #2).
+     */
+    async meHandler(request, h) {
         try {
-            this.service.login(
-                request.payload.username,
-                request.payload.password
-            );
-        }
-        catch(err) {
-            throw Boom.unauthorized();
-        }
-
-        try {
-            this.service.setCookieOnRequest(request, request.payload.username);
-
-            global.logger.info('RESPONSE: AuthController.loginHandler', {
-                meta: {}
-            });
+            const tenant = await this.service.getTenant(request.auth.credentials.tenant_id);
 
             return h.apiSuccess({
-                username: request.payload.username
+                tenant_id: request.auth.credentials.tenant_id,
+                tenant_name: tenant?.name ?? null,
+                timezone: tenant?.timezone ?? null,
+                role: request.auth.credentials.role,
+                is_platform_staff: request.auth.credentials.is_platform_staff
             });
         }
         catch(err) {
-            global.logger.error(err);
-            throw Boom.badRequest(err);
-        }
-    }
-
-
-    logoutHandler(request, h) {
-        global.logger.info('REQUEST: AuthController.logoutHandler', {
-            meta: {
-                payload: request.payload
+            if(err.isBoom) {
+                throw err;
             }
-        });
 
-        try {
-            this.service.removeCookieOnRequest(request);
-
-            global.logger.info('RESPONSE: AuthController.logoutHandler', {
-                meta: {}
-            });
-
-            return h.apiSuccess();
-        }
-        catch(err) {
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

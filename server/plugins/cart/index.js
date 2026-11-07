@@ -24,7 +24,7 @@ export const cartPlugin = {
                     description: 'Gets a list of carts',
                     auth: {
                         // App should not be able to see other carts
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     }
                 }
             }),
@@ -34,7 +34,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Gets a cart by ID',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.query.id) }],
                     ext: { onPreResponse: { method: redactCartForStore } }
@@ -46,7 +46,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Adds a new cart',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: restrictStoreFields }],
                     ext: { onPreResponse: { method: redactCartForStore } },
@@ -61,7 +61,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Updates a cart',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [
                         { method: requireCartAccess((request) => request.payload.id, { mutates: true }) },
@@ -77,7 +77,7 @@ export const cartPlugin = {
                     description: 'Deletes a cart',
                     auth: {
                         // App should not be able to delete carts
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     }
                 }
             }),
@@ -88,7 +88,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Creates a Stripe Checkout Session for a cart and returns its URL',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     plugins: {
@@ -111,7 +111,7 @@ export const cartPlugin = {
                 options: {
                     description: 'Abandons the open Stripe Checkout Session so the cart can be edited again',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     validate: {
@@ -126,14 +126,41 @@ export const cartPlugin = {
             },
 
             {
+                method: 'GET',
+                path: '/orders/confirmation',
+                options: {
+                    description: 'Order confirmation for the storefront, by the Stripe Checkout Session id in the return URL',
+                    auth: {
+                        strategies: ['adminBearer', 'apiKey']
+                    },
+                    plugins: {
+                        // The confirmation page polls this while the order is still pending
+                        'hapi-rate-limit': { pathLimit: false, userPathLimit: 120 }
+                    },
+                    validate: {
+                        query: Joi.object({
+                            session_id: Joi.string().max(255).required()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.orderConfirmationHandler(request, h);
+                    }
+                }
+            },
+
+            {
                 method: 'PUT',
                 path: '/cart/customer_note',
                 options: {
                     description: 'Updates the note the customer leaves for the kitchen',
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true }) }],
+                    // The note is independent of what's already fixed in the Stripe session
+                    // (unlike quantity/item changes), so it stays editable while checkout is in
+                    // progress — the storefront keeps the field visible on that screen precisely
+                    // so a visitor who never saw the unlocked cart still has a way to leave one.
+                    pre: [{ method: requireCartAccess((request) => request.payload.id, { mutates: true, allowDuringCheckout: true }) }],
                     ext: { onPreResponse: { method: redactCartForStore } },
                     validate: {
                         payload: Joi.object({
@@ -149,11 +176,31 @@ export const cartPlugin = {
 
             {
                 method: 'PUT',
+                path: '/cart/kitchen-status',
+                options: {
+                    description: 'Moves a kitchen ticket to the next status; completing one triggers the order-ready email',
+                    auth: {
+                        strategies: ['adminOrKitchenBearer']
+                    },
+                    validate: {
+                        payload: Joi.object({
+                            ...Ctrl.getIdSchema(),
+                            kitchen_status: Joi.string().valid('queued', 'in_progress', 'completed').required()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.updateKitchenStatusHandler(request, h);
+                    }
+                }
+            },
+
+            {
+                method: 'PUT',
                 path: '/cart/notes',
                 options: {
                     description: 'Updates the admin notes for a cart',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                     validate: {
                         payload: Joi.object({
@@ -175,7 +222,7 @@ export const cartPlugin = {
                     description: 'Adds an item to Cart',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
                     pre: [{ method: requireCartAccess((request) => request.payload.cart_id, { mutates: true }) }],
                     validate: {
@@ -195,9 +242,9 @@ export const cartPlugin = {
                     description: 'Updates a CartItem',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.payload.id), { mutates: true }) }],
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.payload.id, request.app.trx), { mutates: true }) }],
                     validate: {
                         payload: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForUpdate()
@@ -215,9 +262,9 @@ export const cartPlugin = {
                     description: 'Deletes a CartItem',
                     ext: { onPreResponse: { method: redactCartForStore } },
                     auth: {
-                        strategies: ['adminCookie', 'apiKey']
+                        strategies: ['adminBearer', 'apiKey']
                     },
-                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.query.id), { mutates: true }) }],
+                    pre: [{ method: requireCartAccess((request) => getCartIdForItem(request.query.id, request.app.trx), { mutates: true }) }],
                     validate: {
                         query: Joi.object({
                             ...CartItemCtrl.service.getValidationSchemaForId()

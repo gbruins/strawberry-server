@@ -24,7 +24,7 @@ async function createProduct(config) {
         return product;
     }
     catch (error) {
-        console.error('Error creating Stripe product:', error);
+        global.logger.error('Error creating Stripe product:', error);
         throw error; // Re-throw for handling upstream
     }
 }
@@ -45,7 +45,7 @@ async function updateProduct(stripeProductId, updateData) {
         return product;
     }
     catch (error) {
-        console.error('Error updating Stripe product:', error);
+        global.logger.error('Error updating Stripe product:', error);
         throw error;
     }
 }
@@ -77,7 +77,7 @@ async function createPrice(config = {}) {
         return price;
     }
     catch (error) {
-        console.error('Error creating Stripe price:', error);
+        global.logger.error('Error creating Stripe price:', error);
         throw error;
     }
 }
@@ -101,7 +101,7 @@ async function updatePrice(stripePriceId, updateData) {
         return price;
     }
     catch (error) {
-        console.error('Error updating Stripe price:', error);
+        global.logger.error('Error updating Stripe price:', error);
         throw error;
     }
 }
@@ -139,15 +139,14 @@ async function findPricesByAmount({
             ...(productId && { product: productId }),
         };
 
-        const stipePrices = await stripe.prices.list(params)
-        console.log('STRIPEPRICES', stipePrices);
+        const stripePrices = await stripe.prices.list(params)
 
         // Use auto-pagination to handle >100 prices if needed
         const matchingPrices = [];
 
         // If filtering by unitAmount
         if (unitAmount) {
-            for (const price of stipePrices.data) {
+            for (const price of stripePrices.data) {
                 if (price.unit_amount === unitAmount) {
                     matchingPrices.push(price);
                 }
@@ -155,13 +154,13 @@ async function findPricesByAmount({
         }
         else {
             // If no unitAmount filter, return all fetched prices
-            matchingPrices.push(...stipePrices.data);
+            matchingPrices.push(...stripePrices.data);
         }
 
         return matchingPrices;
     }
     catch (error) {
-        console.error('Error finding prices by amount:', error);
+        global.logger.error('Error finding prices by amount:', error);
         throw error;
     }
 }
@@ -256,7 +255,63 @@ async function createCheckoutSession({
         return session;
     }
     catch (error) {
-        console.error('Error creating Checkout Session:', error);
+        global.logger.error('Error creating Checkout Session:', error);
+        throw error;
+    }
+}
+
+
+/**
+ * Creates a Checkout Session for Stripe's Embedded Checkout (research.md-equivalent decision:
+ * the payment form renders in an iframe on our own page instead of redirecting to a
+ * Stripe-hosted page). Otherwise identical to createCheckoutSession() — same stock/cart-lock
+ * semantics apply, since this is still a Checkout Session object under the hood; only how the
+ * customer reaches the payment form differs.
+ *
+ * Embedded mode has a single `returnUrl` instead of separate success/cancel URLs: the customer
+ * never leaves our page to begin with, so there's no separate hosted page to "cancel" from —
+ * abandoning payment happens via the existing in-app "Cancel payment" action instead.
+ *
+ * @param {string} sessionData.returnUrl - Where Stripe redirects after a completed payment;
+ *   include the literal `{CHECKOUT_SESSION_ID}` placeholder for Stripe to fill in.
+ */
+async function createEmbeddedCheckoutSession({
+    lineItems,
+    mode = 'payment',
+    returnUrl,
+    customerId = null,
+    metadata = {},
+    clientReferenceId = null,
+    automaticTax = false,
+}) {
+    if (!lineItems || lineItems.length === 0 || !returnUrl) {
+        throw new Error('lineItems and returnUrl are required');
+    }
+
+    try {
+        const session = await stripe.checkout.sessions.create({
+            // Not 'embedded_page' — that newer value needs an API version this account isn't
+            // pinned to yet (confirmed empirically: 'embedded_page' was rejected live with
+            // "you must upgrade to Stripe API version 2026-03-25.dahlia"). 'embedded' is what
+            // this account's actual pinned version accepts.
+            ui_mode: 'embedded',
+            payment_method_types: ['card'],
+            line_items: lineItems,
+            mode,
+            return_url: returnUrl,
+            customer: customerId || undefined,
+            metadata,
+            expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+            billing_address_collection: 'required',
+            phone_number_collection: { enabled: true },
+            ...(clientReferenceId ? { client_reference_id: clientReferenceId } : {}),
+            ...(automaticTax ? { automatic_tax: { enabled: true } } : {}),
+        });
+
+        return session;
+    }
+    catch (error) {
+        global.logger.error('Error creating embedded Checkout Session:', error);
         throw error;
     }
 }
@@ -276,7 +331,7 @@ async function expireCheckoutSession(sessionId) {
     }
     catch (error) {
         // Expected when the session is already complete or expired
-        console.warn('Could not expire Checkout Session:', error.message);
+        global.logger.warn('Could not expire Checkout Session:', error.message);
     }
 }
 
@@ -311,7 +366,7 @@ async function createPaymentIntent({
         return paymentIntent;
     }
     catch (error) {
-        console.error('Error creating Payment Intent:', error);
+        global.logger.error('Error creating Payment Intent:', error);
         throw error;
     }
 }
@@ -335,7 +390,7 @@ function verifyWebhookEvent(payload, signature) {
         return event;
     }
     catch (error) {
-        console.error('Webhook signature verification failed:', error);
+        global.logger.error('Webhook signature verification failed:', error);
         throw error;
     }
 }
@@ -348,6 +403,7 @@ export default {
     createPrice,
     updatePrice,
     createCheckoutSession,
+    createEmbeddedCheckoutSession,
     expireCheckoutSession,
     retrieveCheckoutSession,
     createPaymentIntent,

@@ -28,6 +28,12 @@ export default class CartModel extends BaseModel {
             billing_postalCode: getJoiStringOrNull(),
             billing_countryCodeAlpha2: getJoiStringOrNull(2),
             billing_phone: getJoiStringOrNull(),
+            billing_email: getJoiStringOrNull(255),
+            pickup_code: Joi.alternatives().try(
+                Joi.number().integer().min(100).max(999),
+                Joi.allow(null)
+            ),
+            pickup_code_date: Joi.date().allow(null),
             currency: Joi.alternatives().try(
                 Joi.string().empty(''),
                 Joi.allow(null)

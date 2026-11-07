@@ -27,7 +27,9 @@ export default class ProductController extends BaseController {
             // Create the Product in our database first because
             // the product data is needed for the Stripe objects
             let Product = await this.service.create({
-                data: request.payload
+                data: request.payload,
+                trx: request.app.trx,
+                tenantId: request.app.tenantId
             });
 
             global.logger.info(`ProductController.createHandler - created product`, {
@@ -71,7 +73,8 @@ export default class ProductController extends BaseController {
                     stripe_product_id: StripeProduct.id,
                     stripe_price_id: StripePrice.id
                 },
-                where: { id: Product.id }
+                where: { id: Product.id },
+                trx: request.app.trx
             });
 
             global.logger.info(`RESPONSE: ProductController.updateHandler`, {
@@ -81,8 +84,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(UpdatedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -100,11 +107,12 @@ export default class ProductController extends BaseController {
                 meta: request.payload
             });
 
-            const Product = await this.throwIfNotFound(request.payload.id);
+            const Product = await this.throwIfNotFound(request.payload.id, request);
 
             const UpdatedProduct = await this.service.update({
                 data: request.payload,
-                where: { id: request.payload.id }
+                where: { id: request.payload.id },
+                trx: request.app.trx
             });
 
             // The stripe product needs to be updated if the title, description or stripe_tax_code changes
@@ -165,7 +173,8 @@ export default class ProductController extends BaseController {
                         id: UpdatedProduct.id,
                         stripe_price_id: NewStripePrice.id
                     },
-                    where: { id: UpdatedProduct.id }
+                    where: { id: UpdatedProduct.id },
+                    trx: request.app.trx
                 });
 
                 global.logger.info(`RESPONSE: ProductController.updateHandler - UPDATED product with new Stripe price ID`, {
@@ -182,8 +191,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(UpdatedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -195,7 +208,8 @@ export default class ProductController extends BaseController {
             });
 
             const DeletedProduct = await this.service.del({
-                where: { id: request.query.id }
+                where: { id: request.query.id },
+                trx: request.app.trx
             });
 
             // Note: We are not deleting the Product or Price in Stripe, just deactivating them
@@ -236,8 +250,12 @@ export default class ProductController extends BaseController {
             return h.apiSuccess(DeletedProduct);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 }

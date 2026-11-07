@@ -15,26 +15,24 @@ export const servicePlugin = {
         server.route([
             {
                 method: 'GET',
-                path: '/services/next/stream',
-                handler: (request, h) => Ctrl.streamHandler(request, h),
-                options: {
-                    description: 'Server-Sent Events stream of the service state',
-                    auth: {
-                        strategies: ['apiKey', 'adminCookie']
-                    },
-                    timeout: { socket: false, server: false },
-                    response: { emptyStatusCode: 200 }
-                }
-            },
-
-            {
-                method: 'GET',
                 path: '/services/next',
                 handler: (request, h) => Ctrl.nextHandler(request, h),
                 options: {
                     description: 'Gets the current or next service state',
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
+                    }
+                }
+            },
+
+            {
+                method: 'POST',
+                path: '/services/next/realtime-token',
+                handler: (request, h) => Ctrl.realtimeTokenHandler(request, h),
+                options: {
+                    description: 'Mints a short-lived Supabase Realtime token for the storefront',
+                    auth: {
+                        strategies: ['apiKey', 'adminBearer']
                     }
                 }
             },
@@ -44,7 +42,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a list of services',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                 }
             }),
@@ -54,7 +52,7 @@ export const servicePlugin = {
                 options: {
                     description: 'Gets a service by ID',
                     auth: {
-                        strategies: ['adminCookie']
+                        strategies: ['adminBearer']
                     },
                 }
             }),

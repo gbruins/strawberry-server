@@ -28,28 +28,28 @@ export default class CartItemService extends BaseService {
      * per-order cap and the stock. Only pizzas are limited. Attaches the cart to
      * the open service on its first item.
      */
-    async assertWithinLimits(cart, productId, newQty) {
+    async assertWithinLimits(cart, productId, newQty, trx = db) {
         const now = new Date();
         let service;
 
         if(cart.service_id) {
-            service = await db('service').where({ id: cart.service_id }).first();
+            service = await trx('service').where({ id: cart.service_id }).first();
 
             if(!service || new Date(service.start_at) > now || new Date(service.end_at) <= now) {
                 throw limitError(Boom, 'no_open_service');
             }
         }
         else {
-            service = await getOpenService(now);
+            service = await getOpenService(now, trx);
 
             if(!service) {
                 throw limitError(Boom, 'no_open_service');
             }
         }
 
-        if(await isPizzaProduct(productId)) {
-            const others = await countCartPizzas(cart.id, { excludeProductId: productId });
-            const remaining = await getRemaining(service, { now, excludeCartId: cart.id });
+        if(await isPizzaProduct(productId, trx)) {
+            const others = await countCartPizzas(cart.id, { excludeProductId: productId }, trx);
+            const remaining = await getRemaining(service, { now, excludeCartId: cart.id }, trx);
             const cap = Math.min(service.max_per_order, remaining);
 
             if(others + newQty > cap) {
@@ -61,7 +61,7 @@ export default class CartItemService extends BaseService {
         }
 
         if(!cart.service_id) {
-            await db('carts').where({ id: cart.id }).update({ service_id: service.id, updated_at: db.fn.now() });
+            await trx('carts').where({ id: cart.id }).update({ service_id: service.id, updated_at: trx.fn.now() });
             cart.service_id = service.id;
         }
     }
@@ -72,7 +72,7 @@ export default class CartItemService extends BaseService {
      * @param {*} assertData  Must include the product_id of the product being added
      * @returns
      */
-    async createCartItem(data) {
+    async createCartItem(data, trx = db, tenantId) {
         global.logger.info('REQUEST: CartItemService.createCartItem', {
             meta: data
         });
@@ -85,17 +85,18 @@ export default class CartItemService extends BaseService {
 
         try {
             // Fetch or create the Cart
-            const Cart = await CartSvc.getOrCreateCart(data.cart_id);
+            const Cart = await CartSvc.getOrCreateCart(data.cart_id, trx, tenantId);
             if(!Cart) {
-                throw new Error('Cart does not exist');
+                throw Boom.notFound('Cart does not exist');
             }
 
             // Fetch the Product
             const Product = await ProductSvc.fetchOne({
                 where: { id: data.product_id },
+                trx
             });
             if(!Product) {
-                throw new Error('Product does not exist');
+                throw Boom.notFound('Product does not exist');
             }
 
             // To prevent duplicate cart items being added to the cart:
@@ -108,7 +109,7 @@ export default class CartItemService extends BaseService {
             const quantity = parseInt(data.qty, 10);
             const newQty = existingCartItem?.qty ? parseInt(existingCartItem.qty, 10) + quantity : quantity;
 
-            await this.assertWithinLimits(Cart, Product.id, newQty);
+            await this.assertWithinLimits(Cart, Product.id, newQty, trx);
 
             return this.upsertOne({
                 data: {
@@ -116,7 +117,9 @@ export default class CartItemService extends BaseService {
                     qty: newQty,
                     cart_id: Cart.id,
                     product: Product
-                }
+                },
+                trx,
+                tenantId
             });
         }
         catch(err) {
@@ -124,7 +127,7 @@ export default class CartItemService extends BaseService {
                 throw err;
             }
 
-            console.error(err);
+            global.logger.error(err);
             throw new Error(err.message);
         }
     }
@@ -136,27 +139,29 @@ export default class CartItemService extends BaseService {
      * @param {*} data
      * @returns
      */
-    async updateCartItem(id, qty) {
+    async updateCartItem(id, qty, trx = db) {
         const CartItem = await this.fetchOne({
-            where: { id }
+            where: { id },
+            trx
         });
 
         if(!CartItem) {
-            throw new Error('CartItem does not exist');
+            throw Boom.notFound('CartItem does not exist');
         }
 
         const newQty = parseInt(qty, 10);
 
         // Lowering a quantity is always allowed
         if(newQty > (CartItem.qty || 0)) {
-            const cart = await db('carts').where({ id: CartItem.cart_id }).first();
-            await this.assertWithinLimits(cart, CartItem.product?.id, newQty);
+            const cart = await trx('carts').where({ id: CartItem.cart_id }).first();
+            await this.assertWithinLimits(cart, CartItem.product?.id, newQty, trx);
         }
 
         // Update the CartItem qty value
         return this.update({
             where: { id },
-            data: { qty: newQty }
+            data: { qty: newQty },
+            trx
         });
     }
 
@@ -167,11 +172,11 @@ export default class CartItemService extends BaseService {
      * @param {*} carts
      * @returns []
      */
-    async addRelationToCarts(carts) {
+    async addRelationToCarts(carts, trx = db) {
         await this.setRelations(
             carts,
             'id',
-            db.select(this.model.getAllColumns()).from(this.model.tableName).whereNull('deleted_at'),
+            trx.select(this.model.getAllColumns()).from(this.model.tableName).whereNull('deleted_at'),
             'cart_id',
             'cart_items'
         );
@@ -183,7 +188,7 @@ export default class CartItemService extends BaseService {
         )].filter(Boolean);
 
         if(productIds.length) {
-            const current = await db('products')
+            const current = await trx('products')
                 .select('id', 'title', 'base_price')
                 .whereIn('id', productIds)
                 .where('published', true)

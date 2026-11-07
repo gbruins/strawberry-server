@@ -15,7 +15,7 @@ export default class ProductTypeController extends BaseController {
                 meta: request.payload
             });
 
-            const ProductType = await this.service.addProductType(request.payload);
+            const ProductType = await this.service.addProductType(request.payload, request.app.trx, request.app.tenantId);
 
             global.logger.info('RESPONSE: ProductTypeController.addProductTypeHandler', {
                 meta: ProductType
@@ -24,8 +24,12 @@ export default class ProductTypeController extends BaseController {
             return h.apiSuccess(ProductType);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 
@@ -38,7 +42,8 @@ export default class ProductTypeController extends BaseController {
 
             const ProductType = await this.service.update({
                 data: request.payload,
-                where: { id: request.payload.id }
+                where: { id: request.payload.id },
+                trx: request.app.trx
              });
 
             global.logger.info('RESPONSE: ProductTypeController.updateProductTypeHandler', {
@@ -48,8 +53,12 @@ export default class ProductTypeController extends BaseController {
             return h.apiSuccess(ProductType);
         }
         catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
             global.logger.error(err);
-            throw Boom.badRequest(err);
+            throw Boom.badImplementation();
         }
     }
 

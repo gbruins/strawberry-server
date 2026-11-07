@@ -19,7 +19,7 @@ export const productTypesPlugin = {
                 path: '/product_types',
                 options: {
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                 }
             }),
@@ -28,7 +28,7 @@ export const productTypesPlugin = {
                 path: '/product_type',
                 options: {
                     auth: {
-                        strategies: ['apiKey', 'adminCookie']
+                        strategies: ['apiKey', 'adminBearer']
                     },
                 }
             }),
@@ -63,11 +63,7 @@ export const productTypesPlugin = {
                     validate: {
                         payload: Joi.object({
                             ...Ctrl.service.getValidationSchemaForUpdateOrdinals()
-                        }),
-                        failAction: (request, h, err) => {
-                            console.log('Validation error:', err.message);
-                            // throw err; // rethrow to preserve default behavior
-                        }
+                        })
                     },
                     handler: (request, h) => {
                         return Ctrl.bulkUpdateOrdinalsHandler(request, h);
