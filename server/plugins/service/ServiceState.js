@@ -3,6 +3,20 @@ import { getRemaining } from './ServiceStock.js';
 
 const serviceFields = ['id', 'start_at', 'end_at', 'notes', 'inventory_count', 'max_per_order'];
 
+// The storefront shows where to pick up an order (hero, cart, confirmation page). These are
+// the same owner-editable columns as PUT /tenant/address — public information by nature.
+const SHOP_ADDRESS_FIELDS = ['address_line1', 'address_line2', 'address_city', 'address_state', 'address_postal_code', 'address_phone'];
+
+const publicShop = (t) => ({
+    name: t.name ?? null,
+    address_line1: t.address_line1 ?? null,
+    address_line2: t.address_line2 ?? null,
+    address_city: t.address_city ?? null,
+    address_state: t.address_state ?? null,
+    address_postal_code: t.address_postal_code ?? null,
+    phone: t.address_phone ?? null
+});
+
 const toIso = (v) => (v ? new Date(v).toISOString() : null);
 
 const publicService = (s) => ({
@@ -36,7 +50,7 @@ async function fetchPublishedMenu(menuId, knex = db) {
         .whereNull('p.deleted_at')
         .orderByRaw('smp.ordinal ASC NULLS LAST')
         .orderBy('p.title')
-        .select('p.id', 'p.title', 'p.description', 'p.base_price');
+        .select('p.id', 'p.title', 'p.description', 'p.base_price', 'p.image');
 
     return { ...menu, products };
 }
@@ -51,6 +65,7 @@ export async function buildState(now = new Date(), knex = db, tenantId = null) {
         status: 'none',
         server_now: now.toISOString(),
         timezone: null,
+        shop: null,
         service: null,
         next_service: null
     };
@@ -59,8 +74,9 @@ export async function buildState(now = new Date(), knex = db, tenantId = null) {
     // tenant's connection — research.md #3's third addendum), so the row has to be filtered
     // explicitly by tenantId rather than relying on RLS the way every other query here does.
     if (tenantId) {
-        const tenant = await knex('tenants').where({ id: tenantId }).first('timezone');
+        const tenant = await knex('tenants').where({ id: tenantId }).first('timezone', 'name', ...SHOP_ADDRESS_FIELDS);
         state.timezone = tenant?.timezone ?? null;
+        state.shop = tenant ? publicShop(tenant) : null;
     }
 
     const services = await knex('service')

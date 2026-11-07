@@ -126,6 +126,29 @@ export const cartPlugin = {
             },
 
             {
+                method: 'GET',
+                path: '/orders/confirmation',
+                options: {
+                    description: 'Order confirmation for the storefront, by the Stripe Checkout Session id in the return URL',
+                    auth: {
+                        strategies: ['adminBearer', 'apiKey']
+                    },
+                    plugins: {
+                        // The confirmation page polls this while the order is still pending
+                        'hapi-rate-limit': { pathLimit: false, userPathLimit: 120 }
+                    },
+                    validate: {
+                        query: Joi.object({
+                            session_id: Joi.string().max(255).required()
+                        })
+                    },
+                    handler: (request, h) => {
+                        return Ctrl.orderConfirmationHandler(request, h);
+                    }
+                }
+            },
+
+            {
                 method: 'PUT',
                 path: '/cart/customer_note',
                 options: {

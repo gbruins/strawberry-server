@@ -475,3 +475,66 @@ export async function completeCartFromSession(session) {
 
     return result;
 }
+
+
+/**
+ * The storefront's order confirmation, looked up by the Checkout Session id Stripe appends to
+ * the return URL (`/order/complete?session_id=...`). The session id is unguessable and only
+ * ever reaches the paying customer's browser, so it stands in for the cart token here — which
+ * is the point: the page must still work after a refresh, in another tab, or once the
+ * browser's cart credentials are gone.
+ *
+ * Stripe's webhook normally closes the cart before the customer lands on the page, but it is
+ * asynchronous and can be late. While the cart is still open this asks Stripe directly and, if
+ * the session is paid, completes the order itself — completeCartFromSession() is idempotent
+ * (it skips an already-closed cart), so racing the webhook is safe.
+ *
+ * @returns {Promise<null | { status: 'pending' } | { status: 'complete', ... }>} null when no
+ *   cart belongs to this session (unknown, cancelled or expired)
+ */
+export async function getOrderConfirmation(sessionId, trx = db) {
+    if(!isSessionId(sessionId)) {
+        return null;
+    }
+
+    const find = () => trx('carts')
+        .where({ stripe_order_id: sessionId })
+        .whereNull('deleted_at')
+        .first('id', 'closed_at');
+
+    let cart = await find();
+
+    if(!cart) {
+        return null;
+    }
+
+    if(!cart.closed_at) {
+        const session = await StripeService.retrieveCheckoutSession(sessionId);
+
+        if(session.status === 'complete' && session.payment_status === 'paid') {
+            await completeCartFromSession(session);
+            cart = await find();
+        }
+    }
+
+    if(!cart?.closed_at) {
+        return { status: 'pending' };
+    }
+
+    const order = await CartSvc.fetchOne({ where: { id: cart.id }, trx });
+
+    return {
+        status: 'complete',
+        pickup_code: order.pickup_code,
+        billing_email: order.billing_email,
+        items: (order.cart_items || []).map((item) => ({
+            id: item.id,
+            title: item.product?.title || null,
+            qty: item.qty,
+            price_subtotal: item.price_subtotal || 0
+        })),
+        price_subtotal: order.price_subtotal || 0,
+        sales_tax: order.sales_tax || 0,
+        grand_total: order.grand_total || 0
+    };
+}

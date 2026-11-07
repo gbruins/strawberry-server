@@ -3,7 +3,7 @@ import Boom from '@hapi/boom';
 import BaseController from '../base/BaseController.js';
 import CartService from './CartService.js';
 import CartItemService from './CartItemService.js';
-import { createCheckoutForCart, cancelCheckout, isCheckoutInProgress } from './CheckoutService.js';
+import { createCheckoutForCart, cancelCheckout, isCheckoutInProgress, getOrderConfirmation } from './CheckoutService.js';
 import { sendOrderReadyEmail } from '../notifications/NotificationService.js';
 
 // Kitchen Display System: adjacent-step moves either direction (a shared touchscreen mis-tap
@@ -142,6 +142,26 @@ export default class CartController extends BaseController {
             }
 
             global.logger.error(err);
+            throw Boom.badImplementation();
+        }
+    }
+
+    async orderConfirmationHandler(request, h) {
+        try {
+            const confirmation = await getOrderConfirmation(request.query.session_id, request.app.trx);
+
+            if(!confirmation) {
+                throw Boom.notFound();
+            }
+
+            return h.apiSuccess(confirmation);
+        }
+        catch(err) {
+            if(err.isBoom) {
+                throw err;
+            }
+
+            global.logger.error(err, { meta: { session_id: request.query.session_id } });
             throw Boom.badImplementation();
         }
     }

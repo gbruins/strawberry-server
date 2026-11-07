@@ -35,8 +35,8 @@ const HTML_BODY = `<!DOCTYPE html>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eeeeee;border-bottom:1px solid #eeeeee;">
 {{#each items}}
 <tr>
-<td style="padding:12px 0;font-size:15px;color:#333333;border-bottom:1px solid #f4f4f4;">{{this.quantity}} &times; {{this.name}}</td>
-<td style="padding:12px 0;font-size:15px;color:#333333;text-align:right;border-bottom:1px solid #f4f4f4;">{{this.price}}</td>
+<td style="padding:12px 0;font-size:15px;color:#333333;border-bottom:1px solid #f4f4f4;">{{quantity}} &times; {{name}}</td>
+<td style="padding:12px 0;font-size:15px;color:#333333;text-align:right;border-bottom:1px solid #f4f4f4;">{{price}}</td>
 </tr>
 {{/each}}
 </table>
@@ -64,7 +64,7 @@ Give this number to our staff when you arrive.
 
 Order:
 {{#each items}}
-- {{this.quantity}} x {{this.name}} — {{this.price}}
+- {{quantity}} x {{name}} — {{price}}
 {{/each}}
 
 Subtotal: {{subtotal}}
