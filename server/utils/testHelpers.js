@@ -2,6 +2,7 @@ import knexLib from 'knex';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import knexConfig from '../knexfile.js';
+import { sha256Hex } from './utils.js';
 
 // Test fixtures need to write across tenants and bypass RLS by design (setting up isolated
 // test data for more than one tenant at once), so this connects as the owner/superuser —
@@ -37,7 +38,8 @@ export async function createTestTenant({ name, product, withApiKey = false } = {
         const token = uuidv4().replace(/-/g, '');
         await ownerDb('tenant_api_keys').insert({
             tenant_id: tenant.id,
-            key_hash: bcrypt.hashSync(token, bcrypt.genSaltSync(10))
+            key_hash: bcrypt.hashSync(token, bcrypt.genSaltSync(10)),
+            lookup_hash: sha256Hex(token)
         });
         apiKey = token;
     }

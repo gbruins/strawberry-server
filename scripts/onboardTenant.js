@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import knexLib from 'knex';
 import { createClient } from '@supabase/supabase-js';
 import knexConfig from '../server/knexfile.js';
+import { sha256Hex } from '../server/utils/utils.js';
 
 // Runs as the owner/superuser (knexfile.js's connection) — same as migrations/makeApiKey.js —
 // since admin_users/tenant_api_keys only grant the restricted app role SELECT, not INSERT.
@@ -45,7 +46,8 @@ export async function onboardTenant({ name, timezone, email, supabaseAdmin, admi
         const apiKeyToken = uuidv4().replace(/-/g, '');
         await db('tenant_api_keys').insert({
             tenant_id: tenant.id,
-            key_hash: bcrypt.hashSync(apiKeyToken, bcrypt.genSaltSync(10))
+            key_hash: bcrypt.hashSync(apiKeyToken, bcrypt.genSaltSync(10)),
+            lookup_hash: sha256Hex(apiKeyToken)
         });
 
         return { tenantId: tenant.id, authUserId, apiKeyToken };

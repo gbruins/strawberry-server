@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import knexLib from 'knex';
 import knexConfig from '../server/knexfile.js';
+import { sha256Hex } from '../server/utils/utils.js';
 
 // Runs as the owner/superuser (knexfile.js's DB_USER) — same as migrations — since
 // tenant_api_keys only grants the restricted app role SELECT, not INSERT (data-model.md:
@@ -34,7 +35,7 @@ async function main() {
     const token = uuidv4().replace(/-/g, '');
     const hash = bcrypt.hashSync(token, salt);
 
-    await db('tenant_api_keys').insert({ tenant_id: tenantId, key_hash: hash });
+    await db('tenant_api_keys').insert({ tenant_id: tenantId, key_hash: hash, lookup_hash: sha256Hex(token) });
 
     console.log(`API KEY FOR ${tenant.name}'s STOREFRONT (give this to its own deployment's VITE_API_KEY — specs/004-multi-tenant-supabase research.md #9):`);
     console.log(token);

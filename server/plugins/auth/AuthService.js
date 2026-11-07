@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import BaseService from '../base/BaseService.js';
 import db from '../../db/knex.js';
+import { sha256Hex } from '../../utils/utils.js';
 
 // Lazily created so a missing SUPABASE_URL doesn't crash module load before T001's project
 // exists — only matters once a request actually presents a bearer token.
@@ -100,10 +101,11 @@ export default class AuthService extends BaseService {
 
     /**
      * Validates a storefront's Basic-auth API key and resolves which tenant it belongs to —
-     * the key alone identifies the tenant, no domain/hostname involved (research.md #9). bcrypt
-     * hashes are salted per-hash, so the matching key can't be looked up by equality; every
-     * active key is compared in turn (fine at the staff-provisioned scale this is built for —
-     * FR-007).
+     * the key alone identifies the tenant, no domain/hostname involved (research.md #9).
+     * `lookup_hash` (plain SHA-256, `tenant_api_keys_lookup_hash_unique` —
+     * 20261106140000_tenant_api_keys_lookup_hash.js) narrows this to a single indexed row
+     * instead of bcrypt-comparing every active key in turn; bcrypt still verifies that one
+     * candidate, so a presented key must match both to succeed.
      *
      * @returns {Promise<{isValid: boolean, tenantId: string|null}>}
      */
@@ -114,14 +116,14 @@ export default class AuthService extends BaseService {
                 return { isValid: false, tenantId: null };
             }
 
-            const activeKeys = await db('tenant_api_keys')
+            const candidate = await db('tenant_api_keys')
                 .select('tenant_id', 'key_hash')
-                .whereNull('revoked_at');
+                .whereNull('revoked_at')
+                .where({ lookup_hash: sha256Hex(apiKey) })
+                .first();
 
-            for (const row of activeKeys) {
-                if (await bcrypt.compare(apiKey, row.key_hash)) {
-                    return { isValid: true, tenantId: row.tenant_id };
-                }
+            if (candidate && await bcrypt.compare(apiKey, candidate.key_hash)) {
+                return { isValid: true, tenantId: candidate.tenant_id };
             }
 
             global.logger.error('AuthService:apiKeyIsValid - FAILED - no active key matched');
