@@ -137,7 +137,10 @@ Store callers (Basic auth with the store API key) read the next service; admins 
 - All timestamps are UTC ISO-8601; the UIs display them in each tenant's own configured timezone (`tenants.timezone`, default America/Los_Angeles — see "Multi-tenancy" below).
 - `remaining` is `inventory_count` minus pizzas on paid carts minus pizzas held by live checkouts. Only products whose product type slug is `pizza` count.
 - A checkout holds its pizzas until the Stripe session expires plus 60 seconds (`carts.checkout_expires_at`). Cancel, expiry and payment all release or finalize the hold.
-- `max_per_order` (minimum 1) caps pizzas per cart: `min(max_per_order, remaining)`.
+- `max_per_order` (minimum 1) caps pizzas per cart: `min(max_per_order, remaining)`. Products of any other type are not capped.
+- Each menu product carries `limited: true` when it counts toward `remaining` and `max_per_order` (i.e. it is a pizza), so the storefront only caps those.
+- A product on the menu can be marked out of stock for one service (`PUT /service/availability`, table `service_unavailable_products`). It stays on the menu with `available: false`, and both add-to-cart and checkout refuse it (`409 item_unavailable`), as they do any product not on the service's published menu. The next service starts with everything in stock.
+- Pizza is a built-in product type (`server/plugins/productTypes/builtInProductTypes.js`): every tenant gets it at onboarding, it cannot be deleted or have its slug changed, and every product must have a product type.
 - Carts whose service has ended and that have no live hold are emptied on next access; the response includes `cart_reset: "service_ended"` once.
 
 ### Stream behavior and operations

@@ -1,5 +1,6 @@
 import db from '../../db/knex.js';
-import { getRemaining } from './ServiceStock.js';
+import { getRemaining, joinProductType } from './ServiceStock.js';
+import { PIZZA_SLUG } from '../productTypes/builtInProductTypes.js';
 
 const serviceFields = ['id', 'start_at', 'end_at', 'notes', 'inventory_count', 'max_per_order'];
 
@@ -29,13 +30,13 @@ const publicService = (s) => ({
 });
 
 
-async function fetchPublishedMenu(menuId, knex = db) {
-    if(!menuId) {
+async function fetchPublishedMenu(service, knex = db) {
+    if(!service.service_menu_id) {
         return null;
     }
 
     const menu = await knex('service_menus')
-        .where({ id: menuId, published: true })
+        .where({ id: service.service_menu_id, published: true })
         .whereNull('deleted_at')
         .first('id', 'title', 'description');
 
@@ -43,14 +44,26 @@ async function fetchPublishedMenu(menuId, knex = db) {
         return null;
     }
 
+    // `limited`: whether the product counts toward the service's max_per_order and inventory.
+    // `available`: false when marked out of stock for this service (still listed, not orderable).
     const products = await knex('service_menu_products as smp')
         .join('products as p', 'p.id', 'smp.product_id')
+        .leftJoin('product_types as pt', joinProductType)
+        .leftJoin('service_unavailable_products as sup', function() {
+            this.on('sup.product_id', '=', 'smp.product_id').andOn('sup.service_id', '=', knex.raw('?', [service.id]));
+        })
         .where('smp.service_menu_id', menu.id)
         .where('p.published', true)
         .whereNull('p.deleted_at')
         .orderByRaw('smp.ordinal ASC NULLS LAST')
         .orderBy('p.title')
-        .select('p.id', 'p.title', 'p.description', 'p.base_price', 'p.image');
+        .select(
+            'p.id', 'p.title', 'p.description', 'p.base_price', 'p.image',
+            // The storefront groups the menu into one section per type, in menu order
+            'p.product_type', 'pt.name as type_name',
+            knex.raw('coalesce(pt.slug = ?, false) as limited', [PIZZA_SLUG]),
+            knex.raw('sup.id is null as available')
+        );
 
     return { ...menu, products };
 }
@@ -99,7 +112,7 @@ export async function buildState(now = new Date(), knex = db, tenantId = null) {
     }
 
     state.remaining = await getRemaining(current, { now }, knex);
-    state.menu = await fetchPublishedMenu(current.service_menu_id, knex);
+    state.menu = await fetchPublishedMenu(current, knex);
     state.status = state.remaining > 0 ? 'open' : 'sold_out';
 
     if(state.status === 'sold_out' && services[1]) {

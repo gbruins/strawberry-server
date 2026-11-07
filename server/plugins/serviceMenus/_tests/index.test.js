@@ -28,8 +28,8 @@ describe('PUT /api/v1/service_menu/products', () => {
         tenant = await createTestTenant({ name: 'ServiceMenuProducts test tenant' });
 
         [menu] = await ownerQuery('service_menus').insert({ tenant_id: tenant.tenantId, title: 'Test Menu', published: true }).returning('*');
-        [productA] = await ownerQuery('products').insert({ tenant_id: tenant.tenantId, title: 'Cheese Pizza', published: true, base_price: 10 }).returning('*');
-        [productB] = await ownerQuery('products').insert({ tenant_id: tenant.tenantId, title: 'Pepperoni Pizza', published: true, base_price: 12 }).returning('*');
+        [productA] = await ownerQuery('products').insert({ tenant_id: tenant.tenantId, title: 'Cheese Pizza', published: true, base_price: 10, product_type: tenant.pizzaType }).returning('*');
+        [productB] = await ownerQuery('products').insert({ tenant_id: tenant.tenantId, title: 'Pepperoni Pizza', published: true, base_price: 12, product_type: tenant.pizzaType }).returning('*');
 
         await db.raw('SELECT 1');
     });

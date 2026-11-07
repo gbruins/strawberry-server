@@ -24,6 +24,8 @@ export default class ProductController extends BaseController {
         });
 
         try {
+            await this.service.assertProductTypeExists(request.payload.product_type, request.app.trx);
+
             // Create the Product in our database first because
             // the product data is needed for the Stripe objects
             let Product = await this.service.create({
@@ -108,6 +110,10 @@ export default class ProductController extends BaseController {
             });
 
             const Product = await this.throwIfNotFound(request.payload.id, request);
+
+            if(request.payload.product_type !== undefined) {
+                await this.service.assertProductTypeExists(request.payload.product_type, request.app.trx);
+            }
 
             const UpdatedProduct = await this.service.update({
                 data: request.payload,

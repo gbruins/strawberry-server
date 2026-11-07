@@ -1,7 +1,18 @@
 import db from '../../db/knex.js';
+import { PIZZA_SLUG } from '../productTypes/builtInProductTypes.js';
 
 export const HOLD_MARGIN_MS = 60 * 1000;
 export const PROVISIONAL_HOLD_MS = 31 * 60 * 1000;
+
+/**
+ * Joins a product (`p`) to its type (`pt`). Type values are only unique per tenant, so the
+ * tenant must match too, or queries run without RLS (scripts, the owner connection) would
+ * match every tenant's type with that value.
+ */
+export function joinProductType() {
+    this.on('pt.value', '=', 'p.product_type').andOn('pt.tenant_id', '=', 'p.tenant_id');
+}
+
 
 /**
  * Only products whose product type is Pizza count toward inventory, holds and
@@ -11,10 +22,10 @@ function pizzaItemsQuery(knex) {
     return knex('cart_items as ci')
         .join('carts as c', 'c.id', 'ci.cart_id')
         .join('products as p', knex.raw(`p.id = (ci.product->>'id')::uuid`))
-        .join('product_types as pt', 'pt.value', 'p.product_type')
+        .join('product_types as pt', joinProductType)
         .whereNull('ci.deleted_at')
         .whereNull('c.deleted_at')
-        .where('pt.slug', 'pizza');
+        .where('pt.slug', PIZZA_SLUG);
 }
 
 
@@ -64,9 +75,9 @@ export async function countCartPizzas(cartId, { excludeProductId = null } = {}, 
 
 export async function isPizzaProduct(productId, knex = db) {
     const row = await knex('products as p')
-        .join('product_types as pt', 'pt.value', 'p.product_type')
+        .join('product_types as pt', joinProductType)
         .where('p.id', productId)
-        .where('pt.slug', 'pizza')
+        .where('pt.slug', PIZZA_SLUG)
         .first('p.id');
 
     return !!row;

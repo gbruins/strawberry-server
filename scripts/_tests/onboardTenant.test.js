@@ -34,6 +34,7 @@ describe('onboardTenant', () => {
         for (const tenantId of createdTenantIds) {
             await db('tenant_api_keys').where({ tenant_id: tenantId }).del();
             await db('admin_users').where({ tenant_id: tenantId }).del();
+            await db('product_types').where({ tenant_id: tenantId }).del();
             await db('tenants').where({ id: tenantId }).del();
         }
         await db.destroy();
@@ -78,6 +79,12 @@ describe('onboardTenant', () => {
         expect(bcrypt.compareSync(resultA.apiKeyToken, apiKeyRowB.key_hash)).to.be.false();
         expect(bcrypt.compareSync(resultB.apiKeyToken, apiKeyRowB.key_hash)).to.be.true();
         expect(bcrypt.compareSync(resultB.apiKeyToken, apiKeyRowA.key_hash)).to.be.false();
+
+        // Each tenant gets its own built-in Pizza product type
+        for (const { tenantId } of [resultA, resultB]) {
+            const types = await db('product_types').where({ tenant_id: tenantId }).select('slug');
+            expect(types.map((t) => t.slug)).to.equal(['pizza']);
+        }
     });
 
     it('rolls back the tenant row if the Supabase invite fails', { timeout: 15000 }, async () => {
