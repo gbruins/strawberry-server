@@ -200,6 +200,41 @@ tenant is its own pizza business, with its own admin login, products, menus and 
 **There is no public signup.** Onboarding a new tenant is a staff-only action, done by running a
 script against the server's own database connection — not a form anyone can submit.
 
+### Connecting to Supabase from Render (or any IPv4-only host)
+
+Supabase's **direct connection** host (`db.<project-ref>.supabase.co`) only publishes an IPv6
+(AAAA) DNS record unless the project has Supabase's paid IPv4 add-on. Render has no outbound
+IPv6, so connecting from Render with the direct host fails with
+`getaddrinfo ENOTFOUND db.<project-ref>.supabase.co` — the hostname is correct, there's just no
+route to it from Render.
+
+**Fix: use Supabase's Supavisor session pooler instead of the direct connection** — Dashboard →
+Connect → "Session pooler" tab, not "Direct connection". It's IPv4-reachable and, unlike the
+transaction-mode pooler on port 6543, preserves session state for the life of the connection,
+which this app needs for `SET LOCAL` (RLS tenant-scoping, `server/db/knex.js`) and
+`LISTEN/NOTIFY`.
+
+```
+SUPABASE_DB_HOST=aws-0-<region>.pooler.supabase.com
+SUPABASE_DB_PORT=5432          # session mode — NOT 6543 (transaction mode)
+SUPABASE_DB_USER=postgres.<project-ref>
+```
+
+**`SUPABASE_APP_DB_USER`/`SUPABASE_APP_DB_PASS` need the same `<role>.<project-ref>` format**,
+since Supavisor multiplexes many projects over one host and reads that suffix to route the
+connection:
+
+```
+SUPABASE_APP_DB_USER=<role-name>.<project-ref>   # e.g. strawberry_app.sahdfuamlwsdvhxrmmqe
+```
+
+The role itself is still created *without* the suffix —
+`CREATE ROLE <role-name> LOGIN PASSWORD '...'` in the Supabase SQL editor — the suffix is only a
+connection-routing convention, not part of the role name. Don't `CREATE ROLE` with the dotted
+name; that creates an unrelated, unused role. Migrations that `GRANT`/`REVOKE` against this role
+(`96_multi_tenant_foundation.js` and every migration that follows its `APP_ROLE` pattern) strip
+the suffix back off before using it in SQL, since Postgres role names can't contain a dot.
+
 ### Onboarding a new tenant
 
 ```
