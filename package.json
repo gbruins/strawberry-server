@@ -12,6 +12,7 @@
         "reset-db": "node ./scripts/reset_db.js",
         "make-api-key": "node --require dotenv/config ./scripts/makeApiKey.js",
         "onboard-tenant": "node --require dotenv/config ./scripts/onboardTenant.js",
+        "resend-invite": "node --require dotenv/config ./scripts/resendInvite.js",
         "create-receipt-template": "node --require dotenv/config ./scripts/createReceiptTemplate.js",
         "create-order-ready-template": "node --require dotenv/config ./scripts/createOrderReadyTemplate.js",
         "stripe:listen": "stripe listen --events checkout.session.completed --forward-to https://localhost:10000/api/v1/stripe/webhook",
