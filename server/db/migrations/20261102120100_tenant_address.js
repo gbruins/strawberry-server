@@ -3,7 +3,7 @@
 // owner-facing Settings page (strawberry-admin) lets an owner fill these in. All nullable since
 // existing tenants have none set yet — the completion email degrades gracefully (omits the
 // address block) rather than failing when these are blank. No RLS change: tenants already has
-// an app_select policy (96_multi_tenant_foundation.js) covering reads for this new data too.
+// an app_select policy (20251106123100_multi_tenant_foundation.js) covering reads for this new data too.
 
 /**
  * @param { import("knex").Knex } knex

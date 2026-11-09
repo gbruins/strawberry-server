@@ -302,7 +302,7 @@ async function createCheckout(cartId, trx = db) {
  * here — this runs from the Stripe webhook route (`auth: false`, authenticated by Stripe's
  * signature, not a tenant-bearing session), so no tenant context exists yet when this is
  * called. `get_cart_tenant_id()` (a narrow SECURITY DEFINER function, see migration
- * 96_multi_tenant_foundation.js) resolves it, then everything else proceeds inside a normal
+ * 20251106123100_multi_tenant_foundation.js) resolves it, then everything else proceeds inside a normal
  * tenant-scoped transaction like any other request.
  */
 export async function completeCartFromSession(session) {

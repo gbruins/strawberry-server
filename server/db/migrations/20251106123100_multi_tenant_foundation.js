@@ -2,7 +2,7 @@
 // tenant_api_keys, tenant_id on every existing tenant-scoped table, and the Row-Level Security
 // policies that enforce isolation (research.md #3). One consolidated migration — see tasks.md's
 // "Migration numbering note": Knex sorts migration filenames as plain strings, so this must sort
-// after 95_cart_customer_note.js (confirmed empirically), and this is a fresh, pre-launch
+// after 20251106122900_cart_customer_note.js (confirmed empirically), and this is a fresh, pre-launch
 // database with no need for separately revertible steps.
 
 // The restricted, non-owner/non-superuser role the app's runtime connection uses

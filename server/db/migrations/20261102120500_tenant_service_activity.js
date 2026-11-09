@@ -6,12 +6,12 @@
 // just refetches GET /services/next (unchanged, still computes everything server-side) whenever
 // its own tenant's row changes. See ServiceActivity.js for the write side.
 //
-// Created AFTER 96_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop already ran, so it
+// Created AFTER 20251106123100_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop already ran, so it
 // gets no tenant_id/RLS for free — this replicates that same manual block, same as
-// tenant_pickup_counters (20251106130000_pickup_codes.js) and kitchen_stations did for their
+// tenant_pickup_counters (20251106123300_pickup_codes.js) and kitchen_stations did for their
 // own new tables.
 
-// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 96_multi_tenant_foundation.js) — strip the suffix for SQL.
+// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 20251106123100_multi_tenant_foundation.js) — strip the suffix for SQL.
 const APP_ROLE = (process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser').split('.')[0];
 
 if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(APP_ROLE)) {

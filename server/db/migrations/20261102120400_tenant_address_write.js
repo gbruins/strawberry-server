@@ -1,6 +1,6 @@
 // Kitchen Display System: owners need to self-service their tenant's physical address (filled
 // in from a new strawberry-admin Settings page) without shell/script access — unlike
-// admin_users/tenant_api_keys, which stay script-only writes (96_multi_tenant_foundation.js's
+// admin_users/tenant_api_keys, which stay script-only writes (20251106123100_multi_tenant_foundation.js's
 // comment: "writes happen only via scripts run as the owner, not through arbitrary app
 // requests"). This is a deliberate, narrow exception: an owner may update ONLY the address
 // columns on ONLY their own tenant row — never name/timezone/status, and never another
@@ -11,7 +11,7 @@
 // Column-level GRANT (rather than table-level) means even a bug in the handler code can't let
 // this write path touch status/name/timezone — the database itself won't allow it.
 
-// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 96_multi_tenant_foundation.js) — strip the suffix for SQL.
+// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 20251106123100_multi_tenant_foundation.js) — strip the suffix for SQL.
 const APP_ROLE = (process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser').split('.')[0];
 
 if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(APP_ROLE)) {

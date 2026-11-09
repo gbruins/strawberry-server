@@ -1,9 +1,9 @@
 // Email alerts for next store opening (specs/005-email-open-alerts): email_subscribers,
 // notification_sends, and the unsubscribe_by_token() function. These tables were created AFTER
-// 96_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop already ran once, so they get no
+// 20251106123100_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop already ran once, so they get no
 // tenant_id/RLS for free — this migration replicates that same block directly (research.md #5).
 
-// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 96_multi_tenant_foundation.js) — strip the suffix for SQL.
+// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 20251106123100_multi_tenant_foundation.js) — strip the suffix for SQL.
 const APP_ROLE = (process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser').split('.')[0];
 
 if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(APP_ROLE)) {

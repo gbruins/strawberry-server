@@ -2,10 +2,10 @@
 // menu that can't be ordered during that one service. Rows only ever narrow what the menu
 // offers, so the next service starts with everything in stock again.
 //
-// Created after 96_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop, so it replicates the
-// same tenant_isolation RLS block directly (as 97_email_subscribers.js does).
+// Created after 20251106123100_multi_tenant_foundation.js's TENANT_SCOPED_TABLES loop, so it replicates the
+// same tenant_isolation RLS block directly (as 20251106123200_email_subscribers.js does).
 
-// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 96_multi_tenant_foundation.js) — strip the suffix for SQL.
+// SUPABASE_APP_DB_USER is "<role>.<project-ref>" via Supavisor (see 20251106123100_multi_tenant_foundation.js) — strip the suffix for SQL.
 const APP_ROLE = (process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser').split('.')[0];
 
 if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(APP_ROLE)) {

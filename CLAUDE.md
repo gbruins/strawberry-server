@@ -7,16 +7,38 @@ Node/Hapi.js 21 API backend for a multi-tenant pizza ordering platform. Three re
 
 ## Data model essentials
 
-- There is no "Order" entity — an order is a `carts` row (`server/db/migrations/20_carts.js`) that gets "closed" at checkout. Fulfillment-relevant columns: `closed_at` (payment confirmed, set in `CheckoutService.completeCartFromSession()`), `shipped_at` (defined, currently unused for fulfillment), `deleted_at`.
-- `pickup_code`/`pickup_code_date` (migration `20251106130000_pickup_codes.js`) is the de facto order number shown to customers and used in emails.
-- Order contents live in a separate `cart_items` table (`server/db/migrations/30_cart_items.js`), related to `carts` — not inline columns on `carts`. See `CheckoutService.js:456-460` for the standard `cart_items → {name, quantity, price}` mapping used when building email payloads.
+- There is no "Order" entity — an order is a `carts` row (`server/db/migrations/20251106122000_carts.js`) that gets "closed" at checkout. Fulfillment-relevant columns: `closed_at` (payment confirmed, set in `CheckoutService.completeCartFromSession()`), `shipped_at` (defined, currently unused for fulfillment), `deleted_at`.
+- `pickup_code`/`pickup_code_date` (migration `20251106123300_pickup_codes.js`) is the de facto order number shown to customers and used in emails.
+- Order contents live in a separate `cart_items` table (`server/db/migrations/20251106122200_cart_items.js`), related to `carts` — not inline columns on `carts`. See `CheckoutService.js:456-460` for the standard `cart_items → {name, quantity, price}` mapping used when building email payloads.
 - Product types are per tenant; products point at one by `products.product_type = product_types.value` (required, unique per tenant). The `pizza` slug is built in (`server/plugins/productTypes/builtInProductTypes.js`, seeded by `ensureBuiltInProductTypes` in onboarding, seeds and `createTestTenant`) and protected from delete and slug changes. Only pizzas count toward a service's inventory, checkout holds and `max_per_order` (`server/plugins/service/ServiceStock.js`); always join types with `joinProductType` there, which also matches `tenant_id`.
 - What a customer can order in a service = its published menu's products minus that service's `service_unavailable_products` (per-service "out of stock"). `server/plugins/service/ServiceAvailability.js` is the single source for this; add-to-cart (`CartItemService.assertWithinLimits`) and checkout (`CheckoutService.createCheckout`) both use it.
-- `tenants` table (`server/db/migrations/96_multi_tenant_foundation.js`): `id`, `name`, `timezone`, `status` (`active`/`suspended`), `created_at`.
+- `tenants` table (`server/db/migrations/20251106123100_multi_tenant_foundation.js`): `id`, `name`, `timezone`, `status` (`active`/`suspended`), `created_at`.
 
-## Migration filename hazard — never use `migrate:down`/`migrate:rollback` casually
+## Migration filenames — all `YYYYMMDDHHMMSS_description.js`, sort order IS run order
 
-Migration filenames mix two schemes: old short numeric prefixes (`20_carts.js`, `96_multi_tenant_foundation.js`) and newer `YYYYMMDDHHMMSS_description.js` timestamps (`20251106130000_pickup_codes.js`, `20261102120000_kitchen_status.js`). Knex sorts migration filenames as plain strings, and a timestamp-prefixed name sorts **before** the old short-numbered ones (`'2'` < `'_'` in ASCII, so `"2026..."` < `"20_carts.js"`) even though it was created and run years later. `migrate:latest` is unaffected (it only ever runs the actually-pending set), but `migrate:down`/`migrate:rollback` determine "the most recent migration" by this same full-list name order, not by actual run history — confirmed empirically: running `migrate:down` once rolled back `97_email_subscribers.js` (applied in an earlier batch, months prior) instead of a migration added and run in the same session, because `'9'` sorts after `'2'`. If a migration needs undoing, write a new forward migration that reverses it rather than trusting `migrate:down`/`rollback` to pick the right file.
+Every migration filename uses the same zero-padded `YYYYMMDDHHMMSS_description.js` timestamp
+prefix, chosen so Knex's plain-string sort of the filenames reproduces the real dependency
+order. Keep it that way — give every new migration a timestamp prefix later than the latest
+existing one.
+
+This repo used to mix that scheme with old short numeric prefixes (`20_carts.js`,
+`96_multi_tenant_foundation.js`), on the incorrect assumption that `migrate:latest` was
+unaffected because "it only ever runs the actually-pending set." That's true but irrelevant —
+Knex still runs the pending set *in sorted-filename order*, and in ASCII a digit (`0`-`9`) sorts
+before `_`, so every `"2025…"`/`"2026…"` timestamped file sorted **before** every old short-
+numbered one, regardless of which was actually written or run first. This was invisible in every
+environment that already had the early tables from way back, since those migrations were simply
+skipped as already-applied — it only surfaced the first time every migration was pending at once,
+on the first real production deploy, where it broke immediately: a later migration altering
+`carts` ran before the migration that creates `carts`, failing with `relation "carts" does not
+exist`. All short-numbered files were renamed to fit the timestamp scheme in their true
+dependency order to fix this (git history has the mapping).
+
+Still true regardless of naming scheme: `migrate:down`/`migrate:rollback` determine "the most
+recent migration" by this same full-list filename order, not by actual run history, so they can
+roll back the wrong migration if filenames and apply-order ever diverge again. If a migration
+needs undoing, write a new forward migration that reverses it rather than trusting
+`migrate:down`/`rollback` to pick the right file.
 
 ## Owner self-service writes to a control-plane table
 

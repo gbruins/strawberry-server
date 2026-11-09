@@ -8,7 +8,7 @@
 // kitchen_ready_email_sent_at is an idempotency guard, not a display field: the completion-email
 // side effect is gated on a conditional `UPDATE ... WHERE kitchen_ready_email_sent_at IS NULL`
 // so two tablets completing the same ticket near-simultaneously only ever send one email.
-// carts already has RLS/tenant_id from 96_multi_tenant_foundation.js — no policy changes needed.
+// carts already has RLS/tenant_id from 20251106123100_multi_tenant_foundation.js — no policy changes needed.
 
 /**
  * @param { import("knex").Knex } knex

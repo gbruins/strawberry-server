@@ -232,7 +232,7 @@ The role itself is still created *without* the suffix —
 `CREATE ROLE <role-name> LOGIN PASSWORD '...'` in the Supabase SQL editor — the suffix is only a
 connection-routing convention, not part of the role name. Don't `CREATE ROLE` with the dotted
 name; that creates an unrelated, unused role. Migrations that `GRANT`/`REVOKE` against this role
-(`96_multi_tenant_foundation.js` and every migration that follows its `APP_ROLE` pattern) strip
+(`20251106123100_multi_tenant_foundation.js` and every migration that follows its `APP_ROLE` pattern) strip
 the suffix back off before using it in SQL, since Postgres role names can't contain a dot.
 
 ### Onboarding a new tenant
