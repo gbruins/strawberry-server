@@ -10,7 +10,9 @@
 // owner/superuser DB_USER, which is why this grant step is needed at all. This role must
 // already exist (created once per database, same as today's local `appuser` — see
 // README/T001 for the Supabase equivalent); this migration only grants privileges to it.
-const APP_ROLE = process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser';
+// Through Supavisor, SUPABASE_APP_DB_USER is "<role>.<project-ref>" (the format knex.js needs
+// for the actual pooled connection) — GRANT needs just the bare role name, so drop the suffix.
+const APP_ROLE = (process.env.SUPABASE_APP_DB_USER || process.env.DB_APPUSER || 'appuser').split('.')[0];
 
 if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(APP_ROLE)) {
     throw new Error(`DB_APPUSER "${APP_ROLE}" is not a safe SQL identifier`);
