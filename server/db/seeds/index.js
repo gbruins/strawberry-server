@@ -4,7 +4,7 @@ import product_types from '../../plugins/productTypes/db-seed.js';
 
 // Rows in every seeded table are tenant-scoped (migration 96), but `knex seed:run` has no way
 // to pass which tenant to seed for. Set SEED_TENANT_ID explicitly, or leave it unset when
-// there's exactly one tenant (the common local-dev case) or a tenant named "Sell Out Pizza"
+// there's exactly one tenant (the common local-dev case) or a tenant named "Sellout Pizza"
 // (the platform owner's own, backfilled by migration 96) to seed.
 async function resolveSeedTenantId(knex) {
     if (process.env.SEED_TENANT_ID) {
@@ -17,14 +17,14 @@ async function resolveSeedTenantId(knex) {
         return tenants[0].id;
     }
 
-    const defaultTenant = tenants.find((t) => t.name === 'Sell Out Pizza');
+    const defaultTenant = tenants.find((t) => t.name === 'Sellout Pizza');
 
     if (defaultTenant) {
         return defaultTenant.id;
     }
 
     throw new Error(
-        `Multiple tenants exist and none is named "Sell Out Pizza" — set SEED_TENANT_ID to the ` +
+        `Multiple tenants exist and none is named "Sellout Pizza" — set SEED_TENANT_ID to the ` +
         `tenant you want to seed. Tenants found: ${tenants.map((t) => `${t.name} (${t.id})`).join(', ')}`
     );
 }

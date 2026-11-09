@@ -19,7 +19,7 @@ export function getApiPrefix(path) {
 
 /**
  * Creates an isolated tenant (and optionally a product under it) for a test, and returns a
- * cleanup function. Does not touch the real "Sell Out Pizza" backfilled tenant or its data.
+ * cleanup function. Does not touch the real "Sellout Pizza" backfilled tenant or its data.
  *
  * Like a real onboarded tenant, it has the built-in Pizza product type; `pizzaType` is its
  * value. The fixture product is a pizza unless `product.product_type` says otherwise.
